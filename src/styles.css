@@ -1,17 +1,10 @@
+/* Entry stylesheet. Order matters:
+   1. Tailwind, 2. fonts, 3. raw+semantic tokens, 4. theme mapping + base. */
 
 @import "tailwindcss";
 
-* {
-  box-sizing: border-box;
-}
+@import "@fontsource-variable/atkinson-hyperlegible-next/wght.css";
+@import "@fontsource-variable/atkinson-hyperlegible-mono/wght.css";
 
-html,
-body,
-#app {
-  min-height: 100%;
-}
-
-body {
-  margin: 0;
-}
-
+@import "./styles/tokens.css";
+@import "./styles/theme.css";

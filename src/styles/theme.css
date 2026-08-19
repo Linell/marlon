@@ -1,0 +1,249 @@
+/* ==========================================================================
+   MARLON — THEME
+   --------------------------------------------------------------------------
+   Maps the Layer 2 roles from tokens.css into Tailwind utilities.
+
+   `@theme inline` is the important part: it emits utilities whose values are
+   `var(--role)` rather than a baked-in hex. That is what lets [data-theme]
+   flip the entire app at runtime without a rebuild. If you use plain `@theme`
+   here instead, Tailwind inlines the resolved color and runtime theming dies.
+
+   To add a token: add the role to tokens.css, then add one line below.
+   ========================================================================== */
+
+@theme inline {
+	/* --- Type ------------------------------------------------------------- */
+	/* Sans carries prose and mention bodies. Mono carries machine facts:
+	   handles, timestamps, IDs, counts, keyword strings, match operators. */
+	--font-sans:
+		"Atkinson Hyperlegible Next Variable", ui-sans-serif, system-ui, sans-serif;
+	--font-mono:
+		"Atkinson Hyperlegible Mono Variable", ui-monospace, SFMono-Regular, Menlo,
+		monospace;
+
+	/* --- Color: structure ------------------------------------------------- */
+	--color-surface-sunk: var(--surface-sunk);
+	--color-surface: var(--surface);
+	--color-surface-raised: var(--surface-raised);
+	--color-surface-overlay: var(--surface-overlay);
+	--color-surface-hover: var(--surface-hover);
+
+	--color-loud: var(--text-loud);
+	--color-body: var(--text);
+	--color-muted: var(--text-muted);
+	--color-faint: var(--text-faint);
+	--color-inverse: var(--text-inverse);
+
+	--color-rule-faint: var(--rule-faint);
+	--color-rule: var(--rule);
+	--color-rule-loud: var(--rule-loud);
+
+	--color-signal: var(--signal);
+	--color-signal-hover: var(--signal-hover);
+	--color-signal-dim: var(--signal-dim);
+	--color-signal-wash: var(--signal-wash);
+	--color-signal-edge: var(--signal-edge);
+	--color-on-signal: var(--on-signal);
+
+	/* --- Color: domain ---------------------------------------------------- */
+	/* Add a source here and it is instantly available as bg-/text-/border-. */
+	--color-source-hackernews: var(--source-hackernews);
+	--color-source-linkedin: var(--source-linkedin);
+	--color-source-x: var(--source-x);
+	--color-source-reddit: var(--source-reddit);
+	--color-source-unknown: var(--source-unknown);
+
+	--color-tag-own: var(--tag-own);
+	--color-tag-competitor: var(--tag-competitor);
+	--color-tag-ecosystem: var(--tag-ecosystem);
+	--color-tag-topic: var(--tag-topic);
+	--color-tag-default: var(--tag-default);
+
+	--color-category-question: var(--category-question);
+	--color-category-praise: var(--category-praise);
+	--color-category-complaint: var(--category-complaint);
+	--color-category-request: var(--category-request);
+	--color-category-discussion: var(--category-discussion);
+
+	--color-match-include: var(--match-include);
+	--color-match-exclude: var(--match-exclude);
+
+	--color-sentiment-positive: var(--sentiment-positive);
+	--color-sentiment-negative: var(--sentiment-negative);
+	--color-sentiment-neutral: var(--sentiment-neutral);
+
+	--color-grid-line: var(--grid-line);
+	--color-grid-line-major: var(--grid-line-major);
+
+	/* --- Spacing ---------------------------------------------------------- */
+	/* One rung of thread nesting, for parent_id depth. Use pl-thread etc. */
+	--spacing-thread: var(--thread-rung);
+
+	/* --- Elevation -------------------------------------------------------- */
+	--shadow-low: var(--lift-low);
+	--shadow-lift: var(--lift);
+	--shadow-high: var(--lift-high);
+
+	/* --- Radius ----------------------------------------------------------- */
+	/* Restrained. A wire room is built from rules and boxes, not pills. */
+	--radius-slot: 2px;
+	--radius-card: 4px;
+	--radius-panel: 6px;
+}
+
+/* ==========================================================================
+   BASE
+   ========================================================================== */
+
+@layer base {
+	* {
+		box-sizing: border-box;
+	}
+
+	html {
+		/* Dark-first: the Wire Room is the default, not an opt-in. */
+		color-scheme: dark;
+		/* The surface color lives HERE, not on <body>. See the note on body. */
+		background-color: var(--surface);
+		-webkit-text-size-adjust: 100%;
+	}
+
+	html[data-theme="day"] {
+		color-scheme: light;
+	}
+
+	html,
+	body,
+	#app {
+		min-height: 100%;
+	}
+
+	body {
+		margin: 0;
+		/* Deliberately NO background-color. `.grid-ground` sits at z-index -1,
+		   and per CSS painting order a negative-z-index layer is painted before
+		   in-flow boxes — so an opaque background here covers the grid
+		   completely. The surface color is set on <html> instead, which paints
+		   as the canvas underneath everything. Re-adding a background to body
+		   will silently delete the grid. */
+		color: var(--text);
+		font-family: var(--font-sans);
+		/* Atkinson runs a large x-height; 1.6 keeps dense feeds breathable. */
+		line-height: 1.6;
+		font-size: 15px;
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
+	}
+
+	/* Headings are set tight and are never the amber signal — signal means
+	   "live/actionable", and a static heading is neither. */
+	h1,
+	h2,
+	h3,
+	h4 {
+		margin: 0;
+		color: var(--text-loud);
+		line-height: 1.15;
+		letter-spacing: -0.015em;
+		font-weight: 700;
+		text-wrap: balance;
+	}
+
+	p {
+		margin: 0;
+		text-wrap: pretty;
+	}
+
+	a {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	/* Tabular numerals everywhere mono appears, so counts don't jitter as
+	   they tick up in a live feed. */
+	code,
+	kbd,
+	pre,
+	samp {
+		font-family: var(--font-mono);
+		font-variant-numeric: tabular-nums;
+	}
+
+	:focus-visible {
+		outline: 2px solid var(--signal);
+		outline-offset: 2px;
+		border-radius: 2px;
+	}
+
+	::selection {
+		background: var(--signal-edge);
+		color: var(--text-loud);
+	}
+
+	/* !important is load-bearing here: this has to beat utility classes and
+	   inline styles, or the reduced-motion promise is not actually kept. */
+	@media (prefers-reduced-motion: reduce) {
+		*,
+		*::before,
+		*::after {
+			/* biome-ignore-start lint/complexity/noImportantStyles: accessibility override */
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+			transition-duration: 0.01ms !important;
+			/* biome-ignore-end lint/complexity/noImportantStyles: accessibility override */
+		}
+	}
+}
+
+/* ==========================================================================
+   UTILITIES
+   Small, high-traffic patterns promoted to real utilities so they stay
+   consistent instead of being re-improvised per component.
+   ========================================================================== */
+
+@utility meta {
+	/* The house style for machine facts: handles, times, counts, IDs. */
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	letter-spacing: 0.02em;
+	font-variant-numeric: tabular-nums;
+	color: var(--text-muted);
+}
+
+@utility label-caps {
+	/* Section eyebrows and column headers. Wire-service register. */
+	font-family: var(--font-mono);
+	font-size: 0.6875rem;
+	font-weight: 600;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--text-faint);
+}
+
+@utility grid-ground {
+	/* The app's default ground, rendered once in the root shell so every route
+	   gets it without opting in. Fixed rather than scrolling: the fade stays
+	   anchored to the top of the viewport, so a long page never turns into an
+	   uninterrupted wall of grid.
+
+	   z-index -1 puts it above <body>'s background color but behind all content,
+	   which is why page wrappers must stay transparent. Anything that should
+	   read as a solid object on top of the paper — the header, the footer,
+	   panels — sets its own opaque background. */
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
+	background-image: var(--grid-image);
+	background-size: var(--grid-image-size);
+	-webkit-mask-image: radial-gradient(ellipse at top, black, transparent 80%);
+	mask-image: radial-gradient(ellipse at top, black, transparent 80%);
+}
+
+@utility rule-grid {
+	/* Re-applies the ledger grid on top of an opaque surface — a panel that
+	   should read as bare paper, for instance. The page itself does not need
+	   this; <body> already carries the grid. */
+	background-image: var(--grid-image);
+	background-size: var(--grid-image-size);
+}

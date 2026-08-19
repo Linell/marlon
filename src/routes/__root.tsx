@@ -17,6 +17,14 @@ export const Route = createRootRoute({
 			{
 				title: "Marlon",
 			},
+			{
+				name: "description",
+				content: "Marlon watches for the words that matter to your Brando.",
+			},
+			{
+				name: "theme-color",
+				content: "#0f0e0c",
+			},
 		],
 		links: [
 			{
@@ -30,11 +38,13 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
 	return (
-		<html lang="en">
+		<html lang="en" className="antialiased">
 			<head>
 				<HeadContent />
 			</head>
 			<body>
+				{/* The app's paper. Rendered here so every route inherits it. */}
+				<div className="grid-ground" aria-hidden />
 				{children}
 				<TanStackDevtools
 					config={{

@@ -1,0 +1,194 @@
+/* ==========================================================================
+   MARLON — TOKENS, LAYER 1 + 2
+   --------------------------------------------------------------------------
+   Layer 1 (RAMPS): raw, named-by-hue color scales. Never reference these
+     directly in a component. They exist so Layer 2 has something to point at.
+   Layer 2 (ROLES): semantic, named-by-job variables. Components use ONLY
+     these. Re-theming the app = repointing Layer 2 at different ramp stops.
+
+   Because roles are plain custom properties (not @theme entries), any selector
+   can override them at runtime — see [data-theme="day"] at the bottom.
+   theme.css maps these into Tailwind utilities via @theme inline.
+   ========================================================================== */
+
+:root {
+	/* --- Layer 1: ramps ---------------------------------------------------- */
+
+	/* Ink: warm near-black through paper-white. The whole room is built here. */
+	--ink-990: #080706;
+	--ink-950: #0f0e0c;
+	--ink-900: #161412;
+	--ink-850: #1d1a17;
+	--ink-800: #24201c;
+	--ink-700: #302b25;
+	--ink-600: #423b33;
+	--ink-500: #5c5347;
+	--ink-400: #7f7669;
+	--ink-300: #a69d90;
+	--ink-200: #c9c1b5;
+	--ink-150: #dcd7cd;
+	--ink-100: #e4ded4;
+	--ink-050: #f2ede4;
+
+	/* Amber: the single signal color. Live, active, ours, now. */
+	--amber-700: #8a5210;
+	--amber-600: #b26a12;
+	--amber-500: #d98a22;
+	--amber-400: #e8a33d;
+	--amber-300: #f0bc6e;
+	--amber-200: #f7d6a5;
+
+	/* Accents: deliberately desaturated so nothing out-shouts amber. */
+	--slate-400: #5b8fd9; /* actionable / questions */
+	--slate-300: #8ab0e4;
+	--moss-400: #8d9e42; /* affirmative / praise / included */
+	--moss-300: #adbb69;
+	--rust-400: #d9605a; /* adversarial / competitor / excluded */
+	--rust-300: #e58b86;
+	--teal-400: #4fa8a0; /* ecosystem / third-party */
+	--teal-300: #7cc3bc;
+	--iris-400: #9b7fd4; /* requests / ideas */
+	--iris-300: #b8a3e2;
+
+	/* --- Layer 2: roles --------------------------------------------------- */
+
+	/* Surfaces, back to front. `sunk` for wells/inputs, `raised` for cards. */
+	--surface-sunk: var(--ink-990);
+	--surface: var(--ink-950);
+	--surface-raised: var(--ink-900);
+	--surface-overlay: var(--ink-850);
+	--surface-hover: var(--ink-800);
+
+	/* Text, loudest to quietest. `faint` is for scaffolding, never content. */
+	--text-loud: var(--ink-050);
+	--text: var(--ink-100);
+	--text-muted: var(--ink-300);
+	--text-faint: var(--ink-500);
+	--text-inverse: var(--ink-990);
+
+	/* Rules & edges. `rule` is the default hairline. */
+	--rule-faint: var(--ink-800);
+	--rule: var(--ink-700);
+	--rule-loud: var(--ink-600);
+
+	/* Signal: reserve for live state, primary actions, and our own brand. */
+	--signal: var(--amber-400);
+	--signal-hover: var(--amber-300);
+	--signal-dim: var(--amber-600);
+	--signal-wash: color-mix(in oklab, var(--amber-400) 12%, transparent);
+	--signal-edge: color-mix(in oklab, var(--amber-400) 32%, transparent);
+	--on-signal: var(--ink-990);
+
+	/* --- Layer 2, domain roles -------------------------------------------- */
+	/* These are the extension points. Adding a source, tag, or category is a
+	   two-line change here plus one line in theme.css. See DESIGN.md. */
+
+	/* Sources. Nudged off true brand hues to survive on a warm-black ground. */
+	--source-hackernews: #f26522;
+	--source-linkedin: #4a90d9;
+	--source-x: var(--ink-100);
+	--source-reddit: #e0603a;
+	--source-unknown: var(--ink-400);
+
+	/* Keyword tags. Answers "why are we watching this word?" */
+	--tag-own: var(--amber-400);
+	--tag-competitor: var(--rust-400);
+	--tag-ecosystem: var(--teal-400);
+	--tag-topic: var(--slate-400);
+	--tag-default: var(--ink-300);
+
+	/* Auto-assigned categories. Answers "what kind of post is this?" */
+	--category-question: var(--slate-400);
+	--category-praise: var(--moss-400);
+	--category-complaint: var(--rust-400);
+	--category-request: var(--iris-400);
+	--category-discussion: var(--ink-300);
+
+	/* Match logic. Include vs. exclude must be legible at a glance. */
+	--match-include: var(--moss-400);
+	--match-exclude: var(--rust-400);
+
+	/* Sentiment. Intentionally quiet — a whisper, not a headline. */
+	--sentiment-positive: var(--moss-400);
+	--sentiment-negative: var(--rust-400);
+	--sentiment-neutral: var(--ink-500);
+
+	/* --- Layer 2, non-color roles ----------------------------------------- */
+
+	/* The ledger grid. Applied to <body>, so it is the default ground for every
+	   page rather than something each route opts into.
+
+	   Two tiers, like real graph paper: a minor line every --grid-size and a
+	   stronger major line every fourth. The major/minor weight ratio is held at
+	   ~1.5 in both themes, which is what makes them feel like the same paper.
+
+	   Night runs a much wider lightness gap than day (dL* ~14 vs ~5) and that
+	   is deliberate, not an inconsistency: perceptual sensitivity to lightness
+	   collapses near black, so matching day's *measured* delta down here would
+	   make the grid vanish. The themes are matched by how they read, not by the
+	   number. Stops and their deltas against the night surface:
+	     ink-850 dL* 5.5 | ink-800 dL* 8.6 | ink-700 dL* 13.9 | ink-600 dL* 21.3 */
+	--grid-line: var(--ink-700);
+	--grid-line-major: var(--ink-600);
+	--grid-size: 32px;
+	--grid-size-major: 128px;
+
+	/* Composed once, consumed by both <body> and the `rule-grid` utility.
+	   Theme-dependent colors resolve at use time, so this stays theme-agnostic. */
+	--grid-image:
+		linear-gradient(to right, var(--grid-line-major) 1px, transparent 1px),
+		linear-gradient(to bottom, var(--grid-line-major) 1px, transparent 1px),
+		linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+		linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+	--grid-image-size:
+		var(--grid-size-major) var(--grid-size-major),
+		var(--grid-size-major) var(--grid-size-major),
+		var(--grid-size) var(--grid-size), var(--grid-size) var(--grid-size);
+
+	/* Thread indentation for parent_id nesting. One rung per depth level. */
+	--thread-rung: 1.375rem;
+
+	/* Elevation. Warm-black shadows; cool shadows read as dirty here. */
+	--lift-low: 0 1px 2px rgb(0 0 0 / 0.4);
+	--lift: 0 2px 8px -2px rgb(0 0 0 / 0.5);
+	--lift-high: 0 12px 32px -8px rgb(0 0 0 / 0.6);
+}
+
+/* --------------------------------------------------------------------------
+   DAY ROOM — a light override, kept here to prove the architecture works.
+   Only Layer 2 is repointed. No component and no ramp changes.
+   Apply with <html data-theme="day">.
+   -------------------------------------------------------------------------- */
+[data-theme="day"] {
+	--surface-sunk: var(--ink-100);
+	--surface: var(--ink-050);
+	--surface-raised: #fbf8f2;
+	--surface-overlay: #ffffff;
+	--surface-hover: var(--ink-100);
+
+	--text-loud: var(--ink-990);
+	--text: var(--ink-900);
+	--text-muted: var(--ink-500);
+	--text-faint: var(--ink-400);
+	--text-inverse: var(--ink-050);
+
+	--rule-faint: var(--ink-100);
+	--rule: var(--ink-200);
+	--rule-loud: var(--ink-300);
+
+	--grid-line: var(--ink-100);
+	--grid-line-major: var(--ink-150);
+
+	--signal: var(--amber-600);
+	--signal-hover: var(--amber-700);
+	--signal-dim: var(--amber-500);
+	--on-signal: var(--ink-050);
+
+	--source-x: var(--ink-900);
+	--tag-own: var(--amber-600);
+	--sentiment-neutral: var(--ink-400);
+
+	--lift-low: 0 1px 2px rgb(12 11 9 / 0.08);
+	--lift: 0 2px 8px -2px rgb(12 11 9 / 0.12);
+	--lift-high: 0 12px 32px -8px rgb(12 11 9 / 0.18);
+}
