@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StyleRouteImport } from './routes/style'
+import { Route as ApiInngestRouteImport } from './routes/api/inngest'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const StyleRoute = StyleRouteImport.update({
   path: '/style',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiInngestRoute = ApiInngestRouteImport.update({
+  id: '/api/inngest',
+  path: '/api/inngest',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/style': typeof StyleRoute
+  '/api/inngest': typeof ApiInngestRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/style': typeof StyleRoute
+  '/api/inngest': typeof ApiInngestRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/style': typeof StyleRoute
+  '/api/inngest': typeof ApiInngestRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/style'
+  fullPaths: '/' | '/style' | '/api/inngest'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/style'
-  id: '__root__' | '/' | '/style'
+  to: '/' | '/style' | '/api/inngest'
+  id: '__root__' | '/' | '/style' | '/api/inngest'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   StyleRoute: typeof StyleRoute
+  ApiInngestRoute: typeof ApiInngestRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StyleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/inngest': {
+      id: '/api/inngest'
+      path: '/api/inngest'
+      fullPath: '/api/inngest'
+      preLoaderRoute: typeof ApiInngestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   StyleRoute: StyleRoute,
+  ApiInngestRoute: ApiInngestRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
