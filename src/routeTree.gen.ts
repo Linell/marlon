@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as KeywordsRouteImport } from './routes/keywords'
 import { Route as StyleRouteImport } from './routes/style'
 import { Route as ApiInngestRouteImport } from './routes/api/inngest'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KeywordsRoute = KeywordsRouteImport.update({
+  id: '/keywords',
+  path: '/keywords',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StyleRoute = StyleRouteImport.update({
@@ -31,30 +37,34 @@ const ApiInngestRoute = ApiInngestRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/keywords': typeof KeywordsRoute
   '/style': typeof StyleRoute
   '/api/inngest': typeof ApiInngestRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/keywords': typeof KeywordsRoute
   '/style': typeof StyleRoute
   '/api/inngest': typeof ApiInngestRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/keywords': typeof KeywordsRoute
   '/style': typeof StyleRoute
   '/api/inngest': typeof ApiInngestRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/style' | '/api/inngest'
+  fullPaths: '/' | '/keywords' | '/style' | '/api/inngest'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/style' | '/api/inngest'
-  id: '__root__' | '/' | '/style' | '/api/inngest'
+  to: '/' | '/keywords' | '/style' | '/api/inngest'
+  id: '__root__' | '/' | '/keywords' | '/style' | '/api/inngest'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  KeywordsRoute: typeof KeywordsRoute
   StyleRoute: typeof StyleRoute
   ApiInngestRoute: typeof ApiInngestRoute
 }
@@ -66,6 +76,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/keywords': {
+      id: '/keywords'
+      path: '/keywords'
+      fullPath: '/keywords'
+      preLoaderRoute: typeof KeywordsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/style': {
@@ -87,6 +104,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  KeywordsRoute: KeywordsRoute,
   StyleRoute: StyleRoute,
   ApiInngestRoute: ApiInngestRoute,
 }

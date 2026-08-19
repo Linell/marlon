@@ -130,8 +130,9 @@ override only the roles you want changed. Never touch ramps or components.
   ignores; it should cost zero attention until wanted. Don't promote it without
   a real request.
 - **Exclusions get triple encoding** — a `−` glyph, a rust hue, *and*
-  strikethrough. `Temporal` vs. `temporal lobe` is the subtlest idea in the
-  product and color alone fails for red/green color deficiency.
+  strikethrough. `Mercury` in retrograde vs. `Mercury` on the dealership lot is
+  the subtlest idea in the product and color alone fails for red/green color
+  deficiency.
 - **Deltas are muted, not traffic lights.** "Mentions up 18%" is not inherently
   good or bad news, so don't paint it green.
 - **Route wrappers are `flex min-h-dvh flex-col` with a `flex-1` main.** This

@@ -6,7 +6,7 @@ import type { Tag } from "./registry";
  * KEYWORD RULE — renders one keyword's match logic, including the negative case.
  *
  * The include/exclude distinction is the subtlest thing in the product ("match
- * Temporal, but not brain or lobe"), so it gets redundant encoding: color,
+ * Mercury, but not car or dealership"), so it gets redundant encoding: color,
  * a +/− operator glyph, AND strikethrough on exclusions. Color alone would
  * fail for anyone with a red/green deficiency.
  */

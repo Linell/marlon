@@ -46,11 +46,11 @@ const SAMPLE: MentionData[] = [
 		type: "comment",
 		author: "another_user",
 		body: [
-			{ text: "How does this compare to " },
-			{ text: "Temporal", match: true },
-			{ text: " for long-running workflows?" },
+			{ text: "Is " },
+			{ text: "Mercury", match: true },
+			{ text: " retrograde to blame for these long-running workflows?" },
 		],
-		keyword: "temporal",
+		keyword: "mercury",
 		keywordTag: "competitor",
 		category: "question",
 		sentiment: "neutral",
@@ -111,10 +111,10 @@ function StyleGuide() {
 					<div className="divide-y divide-rule-faint">
 						<KeywordRule keyword="inngest" tag="own" exclude={["ingest"]} />
 						<KeywordRule
-							keyword="temporal"
+							keyword="mercury"
 							tag="competitor"
-							include={["workflow", "queue"]}
-							exclude={["lobe", "brain"]}
+							include={["planet", "retrograde"]}
+							exclude={["car", "dealership"]}
 						/>
 					</div>
 				</Panel>
