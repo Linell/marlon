@@ -14,6 +14,7 @@ import {
 	deleteKeyword,
 	listKeywords,
 	setKeywordActive,
+	updateKeyword,
 } from "#/functions/keywords";
 
 export const Route = createFileRoute("/keywords")({
@@ -68,7 +69,9 @@ function KeywordRow({ row }: { row: Keyword }) {
 	const router = useRouter();
 	const setActiveFn = useServerFn(setKeywordActive);
 	const deleteFn = useServerFn(deleteKeyword);
+	const updateFn = useServerFn(updateKeyword);
 	const [busy, setBusy] = useState(false);
+	const [editing, setEditing] = useState(false);
 
 	const run = async (action: () => Promise<unknown>) => {
 		setBusy(true);
@@ -80,6 +83,28 @@ function KeywordRow({ row }: { row: Keyword }) {
 		}
 	};
 
+	if (editing) {
+		return (
+			<li className="bg-surface/50 px-4 py-4">
+				<KeywordForm
+					initial={{
+						term: row.term,
+						tag: row.tag as Tag,
+						include: row.include.join(", "),
+						exclude: row.exclude.join(", "),
+					}}
+					submitLabel="Save changes"
+					onCancel={() => setEditing(false)}
+					onSubmit={async (values) => {
+						await updateFn({ data: { id: row.id, ...values } });
+						await router.invalidate({ sync: true });
+						setEditing(false);
+					}}
+				/>
+			</li>
+		);
+	}
+
 	return (
 		<li className={cx("flex items-center", !row.active && "opacity-45")}>
 			<KeywordRule
@@ -90,6 +115,14 @@ function KeywordRow({ row }: { row: Keyword }) {
 				exclude={row.exclude}
 			/>
 			<span className="flex shrink-0 items-center gap-1 pr-3">
+				<Button
+					variant="ghost"
+					size="sm"
+					disabled={busy}
+					onClick={() => setEditing(true)}
+				>
+					Edit
+				</Button>
 				<Button
 					variant="ghost"
 					size="sm"
@@ -115,9 +148,18 @@ function KeywordRow({ row }: { row: Keyword }) {
 	);
 }
 
-/* --- Create form ----------------------------------------------------------- */
+/* --- Keyword form ------------------------------------------------------------
+   Shared between the create panel and the inline row editor. Include/exclude
+   are edited as comma-separated text and split on submit. */
 
-const EMPTY_FORM = { term: "", tag: "own" as Tag, include: "", exclude: "" };
+type FormValues = { term: string; tag: Tag; include: string; exclude: string };
+
+const EMPTY_FORM: FormValues = {
+	term: "",
+	tag: "own",
+	include: "",
+	exclude: "",
+};
 
 /** "planet, retrograde" → ["planet", "retrograde"] */
 function splitTerms(value: string): string[] {
@@ -127,10 +169,23 @@ function splitTerms(value: string): string[] {
 		.filter(Boolean);
 }
 
-function CreateKeywordPanel() {
-	const router = useRouter();
-	const createFn = useServerFn(createKeyword);
-	const [form, setForm] = useState(EMPTY_FORM);
+function KeywordForm({
+	initial,
+	submitLabel,
+	onSubmit,
+	onCancel,
+}: {
+	initial: FormValues;
+	submitLabel: string;
+	onSubmit: (values: {
+		term: string;
+		tag: Tag;
+		include: string[];
+		exclude: string[];
+	}) => Promise<void>;
+	onCancel?: () => void;
+}) {
+	const [form, setForm] = useState(initial);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -140,16 +195,12 @@ function CreateKeywordPanel() {
 		setBusy(true);
 		setError(null);
 		try {
-			await createFn({
-				data: {
-					term: form.term,
-					tag: form.tag,
-					include: splitTerms(form.include),
-					exclude: splitTerms(form.exclude),
-				},
+			await onSubmit({
+				term: form.term,
+				tag: form.tag,
+				include: splitTerms(form.include),
+				exclude: splitTerms(form.exclude),
 			});
-			setForm(EMPTY_FORM);
-			await router.invalidate({ sync: true });
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Something went wrong");
 		} finally {
@@ -158,62 +209,95 @@ function CreateKeywordPanel() {
 	};
 
 	return (
+		<form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+			<Field label="Keyword" hint="the term to match">
+				<input
+					className={INPUT}
+					value={form.term}
+					onChange={(e) => setForm({ ...form, term: e.target.value })}
+					placeholder="Mercury"
+					required
+				/>
+			</Field>
+
+			<Field label="Tag" hint="why we watch it">
+				<select
+					className={INPUT}
+					value={form.tag}
+					onChange={(e) => setForm({ ...form, tag: e.target.value as Tag })}
+				>
+					{Object.entries(TAGS).map(([key, entry]) => (
+						<option key={key} value={key}>
+							{entry.label}
+						</option>
+					))}
+				</select>
+			</Field>
+
+			<Field label="+ Also Requires" hint="comma-separated, optional">
+				<input
+					className={INPUT}
+					value={form.include}
+					onChange={(e) => setForm({ ...form, include: e.target.value })}
+					placeholder="planet, retrograde"
+				/>
+			</Field>
+
+			<Field label="− Rejects" hint="kills the match if present">
+				<input
+					className={INPUT}
+					value={form.exclude}
+					onChange={(e) => setForm({ ...form, exclude: e.target.value })}
+					placeholder="car, dealership"
+				/>
+			</Field>
+
+			<div className="flex items-center gap-3 sm:col-span-2">
+				<Button type="submit" variant="signal" size="md" disabled={busy}>
+					{submitLabel}
+				</Button>
+				{onCancel && (
+					<Button
+						type="button"
+						variant="ghost"
+						size="md"
+						disabled={busy}
+						onClick={onCancel}
+					>
+						Cancel
+					</Button>
+				)}
+				{error && (
+					<span className="font-mono text-[0.75rem] text-match-exclude">
+						{error}
+					</span>
+				)}
+			</div>
+		</form>
+	);
+}
+
+function CreateKeywordPanel() {
+	const router = useRouter();
+	const createFn = useServerFn(createKeyword);
+	// Remounting the form after a successful create is the reset.
+	const [formKey, setFormKey] = useState(0);
+
+	return (
 		<Panel className="mt-10 overflow-hidden">
 			<PanelHeader title="Track a Keyword" />
-			<form onSubmit={submit} className="grid gap-4 px-4 py-4 sm:grid-cols-2">
-				<Field label="Keyword" hint="the term to match">
-					<input
-						className={INPUT}
-						value={form.term}
-						onChange={(e) => setForm({ ...form, term: e.target.value })}
-						placeholder="Mercury"
-						required
-					/>
-				</Field>
-
-				<Field label="Tag" hint="why we watch it">
-					<select
-						className={INPUT}
-						value={form.tag}
-						onChange={(e) => setForm({ ...form, tag: e.target.value as Tag })}
-					>
-						{Object.entries(TAGS).map(([key, entry]) => (
-							<option key={key} value={key}>
-								{entry.label}
-							</option>
-						))}
-					</select>
-				</Field>
-
-				<Field label="+ Also Requires" hint="comma-separated, optional">
-					<input
-						className={INPUT}
-						value={form.include}
-						onChange={(e) => setForm({ ...form, include: e.target.value })}
-						placeholder="planet, retrograde"
-					/>
-				</Field>
-
-				<Field label="− Rejects" hint="kills the match if present">
-					<input
-						className={INPUT}
-						value={form.exclude}
-						onChange={(e) => setForm({ ...form, exclude: e.target.value })}
-						placeholder="car, dealership"
-					/>
-				</Field>
-
-				<div className="flex items-center gap-3 sm:col-span-2">
-					<Button type="submit" variant="signal" size="md" disabled={busy}>
-						Track keyword
-					</Button>
-					{error && (
-						<span className="font-mono text-[0.75rem] text-match-exclude">
-							{error}
-						</span>
-					)}
-				</div>
-			</form>
+			<div className="px-4 py-4">
+				<KeywordForm
+					key={formKey}
+					initial={EMPTY_FORM}
+					submitLabel="Track keyword"
+					onSubmit={async (values) => {
+						await createFn({ data: values });
+						await router.invalidate({ sync: true });
+						setFormKey((k) => k + 1);
+					}}
+				/>
+			</div>
 		</Panel>
 	);
 }

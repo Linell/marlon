@@ -64,6 +64,24 @@ export const createKeyword = createServerFn({ method: "POST" })
 		return created;
 	});
 
+export const updateKeyword = createServerFn({ method: "POST" })
+	.validator((data: unknown) => {
+		const { id } = data as Record<string, unknown>;
+		if (typeof id !== "string" || id.length === 0) {
+			throw new Error("A keyword id is required");
+		}
+		return { id, ...validateKeywordInput(data) };
+	})
+	.handler(async ({ data }) => {
+		const { id, ...values } = data;
+		const [updated] = await db
+			.update(keywords)
+			.set(values)
+			.where(eq(keywords.id, id))
+			.returning();
+		return updated ?? null;
+	});
+
 export const setKeywordActive = createServerFn({ method: "POST" })
 	.validator((data: { id: string; active: boolean }) => {
 		if (typeof data?.id !== "string" || typeof data?.active !== "boolean") {
