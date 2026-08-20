@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { Shell } from "#/components/Shell";
 import { Button } from "#/components/ui/Button";
+import { Sparkline } from "#/components/ui/Chart";
 import { cx } from "#/components/ui/cx";
 import { EmptyState } from "#/components/ui/EmptyState";
 import { KeywordRule } from "#/components/ui/KeywordRule";
@@ -16,14 +17,24 @@ import {
 	setKeywordActive,
 	updateKeyword,
 } from "#/functions/keywords";
+import { getMentionTimeseries } from "#/functions/mentions";
 
 export const Route = createFileRoute("/keywords")({
-	loader: () => listKeywords(),
+	loader: async () => {
+		const rows = await listKeywords();
+		const timeseries = await getMentionTimeseries({
+			data: { keywordIds: rows.map((row) => row.id) },
+		});
+		const sparkByKeyword = Object.fromEntries(
+			timeseries.series.map((s) => [s.keywordId, s.counts]),
+		);
+		return { rows, sparkByKeyword };
+	},
 	component: KeywordsPage,
 });
 
 function KeywordsPage() {
-	const rows = Route.useLoaderData();
+	const { rows, sparkByKeyword } = Route.useLoaderData();
 
 	return (
 		<Shell>
@@ -55,7 +66,11 @@ function KeywordsPage() {
 					) : (
 						<ul className="divide-y divide-rule-faint">
 							{rows.map((row) => (
-								<KeywordRow key={row.id} row={row} />
+								<KeywordRow
+									key={row.id}
+									row={row}
+									spark={sparkByKeyword[row.id] ?? []}
+								/>
 							))}
 						</ul>
 					)}
@@ -65,7 +80,7 @@ function KeywordsPage() {
 	);
 }
 
-function KeywordRow({ row }: { row: Keyword }) {
+function KeywordRow({ row, spark }: { row: Keyword; spark: number[] }) {
 	const router = useRouter();
 	const setActiveFn = useServerFn(setKeywordActive);
 	const deleteFn = useServerFn(deleteKeyword);
@@ -116,6 +131,9 @@ function KeywordRow({ row }: { row: Keyword }) {
 				include={row.include}
 				exclude={row.exclude}
 			/>
+			<span className="hidden shrink-0 pr-1 sm:block" aria-hidden>
+				<Sparkline counts={spark} width={96} height={24} />
+			</span>
 			<span className="flex shrink-0 items-center gap-1 pr-3">
 				<Button
 					variant="ghost"

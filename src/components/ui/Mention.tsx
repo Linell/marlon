@@ -31,6 +31,10 @@ export type MentionData = {
 	/** All surface forms of the keyword (term + aliases), for highlighting. */
 	matchTerms: string[];
 	keywordTag: Tag;
+	/** Every keyword that matched, for deduped view feeds where one item can
+	    match several. When present the footer credits all of them instead of
+	    the single keyword/keywordTag pair. */
+	matches?: { term: string; tag: Tag }[];
 	/** Null until enrichment runs. */
 	category: Category | null;
 	sentiment?: "positive" | "negative" | "neutral";
@@ -226,10 +230,16 @@ export function Mention({
 					{/* Footer: why it matched, plus source-specific counts. */}
 					<div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
 						<span className="meta text-faint">matched</span>
-						<span className="meta font-semibold text-signal">
-							{data.keyword}
-						</span>
-						<TagChip tag={data.keywordTag} form="code" />
+						{(
+							data.matches ?? [{ term: data.keyword, tag: data.keywordTag }]
+						).map((match) => (
+							<span key={match.term} className="flex items-center gap-2">
+								<span className="meta font-semibold text-signal">
+									{match.term}
+								</span>
+								<TagChip tag={match.tag} form="code" />
+							</span>
+						))}
 						<span className="ml-auto flex items-center gap-3">
 							{data.score !== undefined && (
 								<span className="meta">{data.score} pts</span>

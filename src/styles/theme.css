@@ -73,6 +73,13 @@
 	--color-sentiment-negative: var(--sentiment-negative);
 	--color-sentiment-neutral: var(--sentiment-neutral);
 
+	--color-chart-series-1: var(--chart-series-1);
+	--color-chart-series-2: var(--chart-series-2);
+	--color-chart-series-3: var(--chart-series-3);
+	--color-chart-series-4: var(--chart-series-4);
+	--color-chart-series-5: var(--chart-series-5);
+	--color-chart-series-6: var(--chart-series-6);
+
 	--color-grid-line: var(--grid-line);
 	--color-grid-line-major: var(--grid-line-major);
 

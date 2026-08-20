@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Button } from "#/components/ui/Button";
+import { ComparisonChart, Sparkline } from "#/components/ui/Chart";
 import { CategoryChip, SourceChip, TagChip } from "#/components/ui/Chip";
 import { EmptyState } from "#/components/ui/EmptyState";
 import { KeywordRule } from "#/components/ui/KeywordRule";
@@ -7,6 +8,7 @@ import { Mention, type MentionData } from "#/components/ui/Mention";
 import { Panel, PanelHeader } from "#/components/ui/Panel";
 import { CATEGORIES, SOURCES, TAGS } from "#/components/ui/registry";
 import { ThemeToggle } from "#/components/ui/ThemeToggle";
+import { ViewCard, type ViewCardData } from "#/components/ViewCard";
 
 export const Route = createFileRoute("/style")({ component: StyleGuide });
 
@@ -59,6 +61,77 @@ const SAMPLE: MentionData[] = [
 		at: "9m",
 		score: 41,
 		depth: 1,
+	},
+];
+
+/* --- Chart sample data --------------------------------------------------------
+   Deterministic waves rather than randomness, so the reference page renders
+   the same on every visit. Sparse is the specimen that matters most: the dev
+   DB is nearly empty, and the y-floor has to keep one mention from reading as
+   a cliff. */
+
+const CHART_DATES = Array.from({ length: 30 }, (_, i) =>
+	new Date(Date.UTC(2026, 6, 22 + i)).toISOString().slice(0, 10),
+);
+
+const wave = (i: number, seed: number) =>
+	Math.max(
+		0,
+		Math.round(3 + 2.5 * Math.sin((i + seed) / 3) + ((i * seed) % 4) - 1),
+	);
+
+const HEALTHY_SERIES = [
+	{
+		keywordId: "s1",
+		term: "inngest",
+		counts: CHART_DATES.map((_, i) => wave(i, 2)),
+	},
+	{
+		keywordId: "s2",
+		term: "mercury",
+		counts: CHART_DATES.map((_, i) => wave(i, 7)),
+	},
+	{
+		keywordId: "s3",
+		term: "workflows",
+		counts: CHART_DATES.map((_, i) => wave(i, 12)),
+	},
+];
+
+/* Total is distinct items, so it sits between the largest series and the sum. */
+const HEALTHY_TOTAL = CHART_DATES.map((_, i) => {
+	const per = HEALTHY_SERIES.map((s) => s.counts[i]);
+	const max = Math.max(...per);
+	const sum = per.reduce((a, b) => a + b, 0);
+	return max + Math.floor((sum - max) / 2);
+});
+
+const SPARSE_SERIES = [
+	{
+		keywordId: "s1",
+		term: "quicksilver",
+		counts: CHART_DATES.map((_, i) => (i === 21 ? 1 : 0)),
+	},
+];
+
+const VIEW_CARDS: ViewCardData[] = [
+	{
+		id: "sample-healthy",
+		name: "Competitive set",
+		keywords: [
+			{ id: "k1", term: "inngest", tag: "own" },
+			{ id: "k2", term: "mercury", tag: "competitor" },
+			{ id: "k3", term: "workflows", tag: "topic" },
+		],
+		mentionCount: HEALTHY_TOTAL.reduce((a, b) => a + b, 0),
+		spark: HEALTHY_TOTAL,
+	},
+	{
+		id: "sample-sparse",
+		name: "Launch watch",
+		keywords: [{ id: "k4", term: "quicksilver", tag: "ecosystem" }],
+		mentionCount: 1,
+		spark: SPARSE_SERIES[0].counts,
 	},
 ];
 
@@ -127,6 +200,43 @@ function StyleGuide() {
 					{SAMPLE.map((m) => (
 						<Mention key={m.id} data={m} />
 					))}
+				</Panel>
+
+				<Panel className="overflow-hidden">
+					<PanelHeader title="Comparison chart — healthy, multi-series with tooltip" />
+					<div className="px-4 pt-4 pb-3">
+						<ComparisonChart
+							dates={CHART_DATES}
+							series={HEALTHY_SERIES}
+							total={HEALTHY_TOTAL}
+						/>
+					</div>
+				</Panel>
+
+				<Panel className="overflow-hidden">
+					<PanelHeader title="Comparison chart — sparse, one mention in the window" />
+					<div className="px-4 pt-4 pb-3">
+						<ComparisonChart
+							dates={CHART_DATES}
+							series={SPARSE_SERIES}
+							total={SPARSE_SERIES[0].counts}
+						/>
+					</div>
+				</Panel>
+
+				<Section title="Sparklines — healthy / sparse (all-zero renders nothing)">
+					<Sparkline counts={HEALTHY_TOTAL} />
+					<Sparkline counts={SPARSE_SERIES[0].counts} />
+					<Sparkline counts={CHART_DATES.map(() => 0)} />
+				</Section>
+
+				<Panel className="overflow-hidden">
+					<PanelHeader title="View cards — healthy / sparse" />
+					<div className="grid gap-4 px-4 py-4 sm:grid-cols-2">
+						{VIEW_CARDS.map((view) => (
+							<ViewCard key={view.id} view={view} />
+						))}
+					</div>
 				</Panel>
 
 				<Panel className="overflow-hidden">

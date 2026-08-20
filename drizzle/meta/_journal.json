@@ -36,6 +36,13 @@
       "when": 1787258681127,
       "tag": "0004_amazing_azazel",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1787261480690,
+      "tag": "0005_silent_dagger",
+      "breakpoints": true
     }
   ]
 }

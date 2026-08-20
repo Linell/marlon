@@ -8,7 +8,7 @@ import { Button } from "#/components/ui/Button";
 import { Chip } from "#/components/ui/Chip";
 import { cx } from "#/components/ui/cx";
 import { EmptyState } from "#/components/ui/EmptyState";
-import { Mention, type MentionData } from "#/components/ui/Mention";
+import { Mention } from "#/components/ui/Mention";
 import { Panel, PanelHeader } from "#/components/ui/Panel";
 import {
 	CATEGORIES,
@@ -27,7 +27,7 @@ import {
 	listMentionsByIds,
 	type MentionRow,
 } from "#/functions/mentions";
-import { matchTerms, splitOnTerms } from "#/lib/match";
+import { asDate, timeAgo, toMentionData } from "#/lib/mention-view";
 
 export const Route = createFileRoute("/")({
 	loader: async () => {
@@ -39,56 +39,6 @@ export const Route = createFileRoute("/")({
 	},
 	component: Home,
 });
-
-function timeAgo(date: Date, now = Date.now()): string {
-	const minutes = Math.floor((now - date.getTime()) / 60_000);
-	if (minutes < 1) return "now";
-	if (minutes < 60) return `${minutes}m ago`;
-	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours}h ago`;
-	return `${Math.floor(hours / 24)}d ago`;
-}
-
-function asDate(value: Date | string | null | undefined): Date | null {
-	if (!value) return null;
-	if (value instanceof Date) return value;
-	return new Date(value);
-}
-
-/** Whichever field the keyword actually matched, so the highlight shows. */
-function matchedBody(row: MentionRow, terms: string[]): string {
-	const [primary, secondary] =
-		row.type === "comment"
-			? [row.bodyText, row.title]
-			: [row.title, row.bodyText];
-	for (const text of [primary, secondary]) {
-		if (text && splitOnTerms(text, terms).some((run) => run.match)) {
-			return text;
-		}
-	}
-	return primary ?? secondary ?? "";
-}
-
-function toMentionData(row: MentionRow): MentionData {
-	const terms = matchTerms(row);
-	return {
-		id: row.id,
-		source: row.source,
-		type: row.type === "comment" ? "comment" : "story",
-		author: row.author ?? "unknown",
-		body: splitOnTerms(matchedBody(row, terms), terms),
-		keyword: row.term,
-		matchTerms: terms,
-		keywordTag: row.tag as Tag,
-		category: row.category as Category | null,
-		at: timeAgo(row.postedAt ?? row.createdAt),
-		permalink: row.permalink,
-		thread:
-			row.threadTitle && row.threadPermalink
-				? { title: row.threadTitle, href: row.threadPermalink }
-				: undefined,
-	};
-}
 
 function mentionCreatedAtMs(row: MentionRow): number {
 	const createdAt = asDate(row.createdAt);

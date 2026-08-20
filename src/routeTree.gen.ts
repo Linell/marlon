@@ -13,6 +13,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as KeywordsRouteImport } from './routes/keywords'
 import { Route as StyleRouteImport } from './routes/style'
 import { Route as ApiInngestRouteImport } from './routes/api/inngest'
+import { Route as ViewsIndexRouteImport } from './routes/views.index'
+import { Route as ViewsViewIdRouteImport } from './routes/views.$viewId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +36,32 @@ const ApiInngestRoute = ApiInngestRouteImport.update({
   path: '/api/inngest',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ViewsIndexRoute = ViewsIndexRouteImport.update({
+  id: '/views/',
+  path: '/views/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ViewsViewIdRoute = ViewsViewIdRouteImport.update({
+  id: '/views/$viewId',
+  path: '/views/$viewId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/keywords': typeof KeywordsRoute
   '/style': typeof StyleRoute
   '/api/inngest': typeof ApiInngestRoute
+  '/views/$viewId': typeof ViewsViewIdRoute
+  '/views/': typeof ViewsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/keywords': typeof KeywordsRoute
   '/style': typeof StyleRoute
   '/api/inngest': typeof ApiInngestRoute
+  '/views/$viewId': typeof ViewsViewIdRoute
+  '/views': typeof ViewsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +69,24 @@ export interface FileRoutesById {
   '/keywords': typeof KeywordsRoute
   '/style': typeof StyleRoute
   '/api/inngest': typeof ApiInngestRoute
+  '/views/$viewId': typeof ViewsViewIdRoute
+  '/views/': typeof ViewsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/keywords' | '/style' | '/api/inngest'
+  fullPaths:
+    '/' | '/keywords' | '/style' | '/api/inngest' | '/views/$viewId' | '/views/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/keywords' | '/style' | '/api/inngest'
-  id: '__root__' | '/' | '/keywords' | '/style' | '/api/inngest'
+  to:
+    '/' | '/keywords' | '/style' | '/api/inngest' | '/views/$viewId' | '/views'
+  id:
+    | '__root__'
+    | '/'
+    | '/keywords'
+    | '/style'
+    | '/api/inngest'
+    | '/views/$viewId'
+    | '/views/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +94,8 @@ export interface RootRouteChildren {
   KeywordsRoute: typeof KeywordsRoute
   StyleRoute: typeof StyleRoute
   ApiInngestRoute: typeof ApiInngestRoute
+  ViewsViewIdRoute: typeof ViewsViewIdRoute
+  ViewsIndexRoute: typeof ViewsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +128,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiInngestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/views/': {
+      id: '/views/'
+      path: '/views'
+      fullPath: '/views/'
+      preLoaderRoute: typeof ViewsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/views/$viewId': {
+      id: '/views/$viewId'
+      path: '/views/$viewId'
+      fullPath: '/views/$viewId'
+      preLoaderRoute: typeof ViewsViewIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +150,8 @@ const rootRouteChildren: RootRouteChildren = {
   KeywordsRoute: KeywordsRoute,
   StyleRoute: StyleRoute,
   ApiInngestRoute: ApiInngestRoute,
+  ViewsViewIdRoute: ViewsViewIdRoute,
+  ViewsIndexRoute: ViewsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

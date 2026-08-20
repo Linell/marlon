@@ -125,6 +125,28 @@ export const mentions = sqliteTable(
 	(t) => [uniqueIndex("mentions_item_keyword").on(t.itemId, t.keywordId)],
 );
 
+/* --- Views -------------------------------------------------------------------
+   A named grouping of keywords — a saved reading lens over stored mentions,
+   retroactive by design (the matcher and import pipeline never see views).
+   `keywordIds` is a JSON list rather than a join table, matching the repo's
+   idiom; deleting a keyword can strand an id here, which readers filter out
+   at read time instead of pruning on delete. */
+export const views = sqliteTable("views", {
+	id: text("id").primaryKey().$defaultFn(uuid),
+	name: text("name").notNull(),
+	keywordIds: text("keyword_ids", { mode: "json" })
+		.$type<string[]>()
+		.notNull()
+		.default([]),
+	createdAt: integer("created_at", { mode: "timestamp" })
+		.notNull()
+		.$defaultFn(now),
+	updatedAt: integer("updated_at", { mode: "timestamp" })
+		.notNull()
+		.$defaultFn(now)
+		.$onUpdateFn(now),
+});
+
 /* --- Source cursors ----------------------------------------------------------
    Per-source import bookmark. Text rather than integer because only HN's
    cursor happens to be numeric; another source's might be an opaque token. */
@@ -156,3 +178,5 @@ export type Mention = typeof mentions.$inferSelect;
 export type NewMention = typeof mentions.$inferInsert;
 export type ImportRun = typeof importRuns.$inferSelect;
 export type NewImportRun = typeof importRuns.$inferInsert;
+export type View = typeof views.$inferSelect;
+export type NewView = typeof views.$inferInsert;

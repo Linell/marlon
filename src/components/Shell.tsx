@@ -21,6 +21,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 const NAV = [
 	{ to: "/", label: "Mentions" },
 	{ to: "/keywords", label: "Keywords" },
+	{ to: "/views", label: "Views" },
 ] as const;
 
 function TopBar() {

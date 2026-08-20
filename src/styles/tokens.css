@@ -114,6 +114,16 @@
 	--sentiment-negative: var(--rust-400);
 	--sentiment-neutral: var(--ink-500);
 
+	/* Chart series. An ordinal palette for comparison lines, assigned by index,
+	   so a series' color carries no meaning beyond "not the same as its
+	   neighbor". Amber is deliberately absent — signal is reserved. */
+	--chart-series-1: var(--slate-400);
+	--chart-series-2: var(--teal-400);
+	--chart-series-3: var(--iris-400);
+	--chart-series-4: var(--moss-400);
+	--chart-series-5: var(--rust-400);
+	--chart-series-6: var(--ink-300);
+
 	/* --- Layer 2, non-color roles ----------------------------------------- */
 
 	/* The ledger grid. Applied to <body>, so it is the default ground for every
@@ -188,6 +198,7 @@
 	--source-x: var(--ink-900);
 	--tag-own: var(--amber-600);
 	--sentiment-neutral: var(--ink-400);
+	--chart-series-6: var(--ink-500);
 
 	--lift-low: 0 1px 2px rgb(12 11 9 / 0.08);
 	--lift: 0 2px 8px -2px rgb(12 11 9 / 0.12);
