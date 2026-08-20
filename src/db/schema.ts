@@ -131,9 +131,22 @@ export const sourceCursors = sqliteTable("source_cursors", {
 		.$onUpdateFn(now),
 });
 
+/* --- Import runs -------------------------------------------------------------
+   One row per source import execution with roll-up counts used by the homepage
+   activity ticker and status line. */
+export const importRuns = sqliteTable("import_runs", {
+	source: text("source").notNull(),
+	startedAt: integer("started_at", { mode: "timestamp" }).notNull(),
+	completedAt: integer("completed_at", { mode: "timestamp" }),
+	itemsChecked: integer("items_checked").notNull().default(0),
+	matchCount: integer("match_count").notNull().default(0),
+});
+
 export type Keyword = typeof keywords.$inferSelect;
 export type NewKeyword = typeof keywords.$inferInsert;
 export type Item = typeof items.$inferSelect;
 export type NewItem = typeof items.$inferInsert;
 export type Mention = typeof mentions.$inferSelect;
 export type NewMention = typeof mentions.$inferInsert;
+export type ImportRun = typeof importRuns.$inferSelect;
+export type NewImportRun = typeof importRuns.$inferInsert;

@@ -2,6 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { NonRetriableError } from "inngest";
 import { db } from "#/db/client";
 import {
+	importRuns,
 	items,
 	type Keyword,
 	keywords,
@@ -13,11 +14,20 @@ import { getAdapter } from "#/sources";
 import type { SourceItem } from "#/sources/types";
 import { inngest } from "../client";
 import { mentionCreated, sourceImportRequested } from "../events";
+import { activityRealtime } from "../realtime";
 
 /** Chunks (adapter pages) walked per run; the next cron tick continues. */
 const MAX_CHUNKS_PER_RUN = 20;
 
 type MentionRef = { mentionId: string; itemId: string; keywordId: string };
+type MatchFound = MentionRef & { keyword: string; title: string };
+
+function tickerTitle(item: SourceItem): string {
+	const raw = item.title ?? item.threadTitle ?? item.bodyText ?? item.permalink;
+	const compact = raw.replace(/\s+/g, " ").trim();
+	if (compact.length <= 120) return compact;
+	return `${compact.slice(0, 117)}...`;
+}
 
 /**
  * Upsert matched items and their mentions, returning a ref per mention.
@@ -27,7 +37,7 @@ type MentionRef = { mentionId: string; itemId: string; keywordId: string };
 async function storeMatches(
 	source: string,
 	matched: { item: SourceItem; hits: Keyword[] }[],
-): Promise<MentionRef[]> {
+): Promise<MatchFound[]> {
 	if (matched.length === 0) return [];
 
 	await db
@@ -51,13 +61,29 @@ async function storeMatches(
 
 	const pairs = matched.flatMap(({ item, hits }) => {
 		const itemId = idBySourceId.get(item.sourceId);
-		return itemId ? hits.map((k) => ({ itemId, keywordId: k.id })) : [];
+		const title = tickerTitle(item);
+		return itemId
+			? hits.map((k) => ({
+					itemId,
+					keywordId: k.id,
+					keyword: k.term,
+					title,
+				}))
+			: [];
 	});
 	if (pairs.length === 0) return [];
 
-	await db.insert(mentions).values(pairs).onConflictDoNothing();
+	await db
+		.insert(mentions)
+		.values(pairs.map(({ itemId, keywordId }) => ({ itemId, keywordId })))
+		.onConflictDoNothing();
 
-	const wanted = new Set(pairs.map((p) => `${p.itemId}:${p.keywordId}`));
+	const metaByPair = new Map(
+		pairs.map((pair) => [
+			`${pair.itemId}:${pair.keywordId}`,
+			{ keyword: pair.keyword, title: pair.title },
+		]),
+	);
 	const rows = await db
 		.select({
 			id: mentions.id,
@@ -71,13 +97,22 @@ async function storeMatches(
 				pairs.map((p) => p.itemId),
 			),
 		);
-	return rows
-		.filter((r) => wanted.has(`${r.itemId}:${r.keywordId}`))
-		.map((r) => ({
-			mentionId: r.id,
-			itemId: r.itemId,
-			keywordId: r.keywordId,
-		}));
+
+	const out: MatchFound[] = [];
+	for (const row of rows) {
+		const key = `${row.itemId}:${row.keywordId}`;
+		const meta = metaByPair.get(key);
+		if (!meta) continue;
+		out.push({
+			mentionId: row.id,
+			itemId: row.itemId,
+			keywordId: row.keywordId,
+			keyword: meta.keyword,
+			title: meta.title,
+		});
+	}
+
+	return out;
 }
 
 /* --- import-source -----------------------------------------------------------
@@ -109,8 +144,15 @@ export const importSource = inngest.createFunction(
 			throw new NonRetriableError(`No adapter registered for "${source}"`);
 		}
 
+		const startedAt = new Date();
+		await step.realtime.publish(
+			"activity-started",
+			activityRealtime["import.started"],
+			{ source },
+		);
+
 		let scanned = 0;
-		let emitted = 0;
+		let matchCount = 0;
 
 		for (let chunk = 0; chunk < MAX_CHUNKS_PER_RUN; chunk++) {
 			const result = await step.run(`chunk-${chunk}`, async () => {
@@ -152,6 +194,7 @@ export const importSource = inngest.createFunction(
 				}
 
 				const refs = await storeMatches(source, matched);
+				const titles = page.items.map(tickerTitle);
 
 				await db
 					.insert(sourceCursors)
@@ -161,18 +204,37 @@ export const importSource = inngest.createFunction(
 						set: { cursor: page.nextCursor, lastRunAt: new Date() },
 					});
 
-				return { scanned: page.items.length, refs, done: page.done };
+				return { scanned: page.items.length, refs, titles, done: page.done };
 			});
 
 			scanned += result.scanned;
-			emitted += result.refs.length;
+			matchCount += result.refs.length;
+
+			await step.realtime.publish(
+				`activity-progress-${chunk}`,
+				activityRealtime["import.progress"],
+				{
+					source,
+					itemsChecked: result.scanned,
+					matchCount: result.refs.length,
+					titles: result.titles,
+				},
+			);
+
+			for (const ref of result.refs) {
+				await step.realtime.publish(
+					`activity-match-${ref.mentionId}`,
+					activityRealtime["match.found"],
+					{ keyword: ref.keyword, title: ref.title },
+				);
+			}
 
 			if (result.refs.length > 0) {
 				await step.sendEvent(
 					`emit-${chunk}`,
-					result.refs.map((ref) =>
-						mentionCreated.create(ref, {
-							id: `mention.created/${ref.mentionId}`,
+					result.refs.map(({ mentionId, itemId, keywordId }) =>
+						mentionCreated.create({ mentionId, itemId, keywordId }, {
+							id: `mention.created/${mentionId}`,
 						}),
 					),
 				);
@@ -181,6 +243,27 @@ export const importSource = inngest.createFunction(
 			if (result.done) break;
 		}
 
-		return { source, scanned, mentionEvents: emitted };
+		const completedAt = new Date();
+		await step.run("store-import-run", async () => {
+			await db.insert(importRuns).values({
+				source,
+				startedAt,
+				completedAt,
+				itemsChecked: scanned,
+				matchCount,
+			});
+		});
+
+		await step.realtime.publish(
+			"activity-completed",
+			activityRealtime["import.completed"],
+			{
+				source,
+				totalChecked: scanned,
+				totalMatches: matchCount,
+			},
+		);
+
+		return { source, scanned, mentionEvents: matchCount };
 	},
 );

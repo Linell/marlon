@@ -1,5 +1,7 @@
+import { useInngestSubscription } from "@inngest/realtime/hooks";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "#/components/Shell";
 import { Button } from "#/components/ui/Button";
 import { Chip } from "#/components/ui/Chip";
@@ -14,21 +16,38 @@ import {
 	TAGS,
 	type Tag,
 } from "#/components/ui/registry";
+import {
+	getImportActivity,
+	type ImportActivityPayload,
+	mintActivitySubscriptionToken,
+} from "#/functions/activity";
 import { listMentions, type MentionRow } from "#/functions/mentions";
 import { splitOnTerm } from "#/lib/match";
 
 export const Route = createFileRoute("/")({
-	loader: () => listMentions(),
+	loader: async () => {
+		const [mentions, activity] = await Promise.all([
+			listMentions(),
+			getImportActivity(),
+		]);
+		return { mentions, activity };
+	},
 	component: Home,
 });
 
-function timeAgo(date: Date): string {
-	const minutes = Math.floor((Date.now() - date.getTime()) / 60_000);
+function timeAgo(date: Date, now = Date.now()): string {
+	const minutes = Math.floor((now - date.getTime()) / 60_000);
 	if (minutes < 1) return "now";
 	if (minutes < 60) return `${minutes}m ago`;
 	const hours = Math.floor(minutes / 60);
 	if (hours < 24) return `${hours}h ago`;
 	return `${Math.floor(hours / 24)}d ago`;
+}
+
+function asDate(value: Date | string | null | undefined): Date | null {
+	if (!value) return null;
+	if (value instanceof Date) return value;
+	return new Date(value);
 }
 
 /** Whichever field the keyword actually matched, so the highlight shows. */
@@ -128,8 +147,183 @@ function useMentionFilters(rows: MentionRow[]) {
 	return { category, setCategory, tag, setTag, counts, filtered };
 }
 
+type ActivityTickerItem = {
+	id: number;
+	kind: "progress" | "match" | "run";
+	text: string;
+};
+
+type ActivityToken = Awaited<ReturnType<typeof mintActivitySubscriptionToken>>;
+
+function ActivityTicker({
+	activity,
+}: {
+	activity: ImportActivityPayload;
+}) {
+	const [lastRunSummary, setLastRunSummary] = useState(activity.lastRunSummary);
+	const [now, setNow] = useState(() => Date.now());
+	const [token, setToken] = useState<ActivityToken | null>(null);
+	const [tokenError, setTokenError] = useState<string | null>(null);
+	const [items, setItems] = useState<ActivityTickerItem[]>([]);
+	const [itemIndex, setItemIndex] = useState(0);
+	const itemId = useRef(0);
+	const mintToken = useServerFn(mintActivitySubscriptionToken);
+
+	useEffect(() => {
+		const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+		return () => window.clearInterval(timer);
+	}, []);
+
+	useEffect(() => {
+		let cancelled = false;
+		mintToken()
+			.then((next) => {
+				if (cancelled) return;
+				setToken(next);
+				setTokenError(null);
+			})
+			.catch((err) => {
+				if (cancelled) return;
+				setTokenError(err instanceof Error ? err.message : "Token mint failed");
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [mintToken]);
+
+	const subscription = useInngestSubscription({
+		token: token as any,
+		enabled: token !== null,
+		bufferInterval: 250,
+		refreshToken: async () => {
+			const next = await mintToken();
+			setToken(next);
+			setTokenError(null);
+			return next as any;
+		},
+	});
+
+	useEffect(() => {
+		if (subscription.freshData.length === 0) return;
+
+		const nextItems: ActivityTickerItem[] = [];
+
+		for (const message of subscription.freshData) {
+			switch (message.topic) {
+				case "import.started":
+					nextItems.push({
+						id: itemId.current++,
+						kind: "run",
+						text: `Import started (${message.data.source})`,
+					});
+					break;
+				case "import.progress":
+					for (const title of message.data.titles) {
+						nextItems.push({
+							id: itemId.current++,
+							kind: "progress",
+							text: title,
+						});
+					}
+					break;
+				case "match.found":
+					nextItems.push({
+						id: itemId.current++,
+						kind: "match",
+						text: `${message.data.keyword} matched in ${message.data.title}`,
+					});
+					break;
+				case "import.completed": {
+					nextItems.push({
+						id: itemId.current++,
+						kind: "run",
+						text: `Import completed (${message.data.source})`,
+					});
+					const completedAt =
+						message.kind === "data" ? message.createdAt : new Date();
+					setLastRunSummary({
+						source: message.data.source,
+						completedAt,
+						itemsChecked: message.data.totalChecked,
+						matchCount: message.data.totalMatches,
+					});
+					break;
+				}
+			}
+		}
+
+		if (nextItems.length === 0) return;
+
+		setItems((prev) => [...prev, ...nextItems].slice(-120));
+	}, [subscription.freshData]);
+
+	useEffect(() => {
+		if (items.length === 0) {
+			if (itemIndex !== 0) setItemIndex(0);
+			return;
+		}
+		if (itemIndex >= items.length) {
+			setItemIndex(items.length - 1);
+		}
+	}, [items, itemIndex]);
+
+	useEffect(() => {
+		if (items.length <= 1 || itemIndex >= items.length - 1) return;
+		const active = items[itemIndex];
+		const delay = active?.kind === "match" ? 2600 : 1400;
+		const timer = window.setTimeout(() => {
+			setItemIndex((curr) => Math.min(curr + 1, items.length - 1));
+		}, delay);
+		return () => window.clearTimeout(timer);
+	}, [items, itemIndex]);
+
+	const current = items[itemIndex] ?? null;
+	const completedAt = asDate(lastRunSummary?.completedAt);
+	const status = lastRunSummary && completedAt
+		? `Last import ${timeAgo(completedAt, now)} · ${lastRunSummary.itemsChecked} checked · ${lastRunSummary.matchCount} matches`
+		: "Last import pending · 0 checked · 0 matches";
+
+	return (
+		<Panel className="mt-10 overflow-hidden">
+			<PanelHeader
+				title="Activity"
+				aside={<span className="meta text-faint tabular-nums">{status}</span>}
+			/>
+			<div className="border-b border-rule-faint px-4 py-2">
+				<span className="meta text-faint">
+					{tokenError
+						? `offline: ${tokenError}`
+						: subscription.state === "active"
+							? "live"
+							: "connecting..."}
+				</span>
+			</div>
+			<div className="px-4 py-3">
+				{current ? (
+					<p
+						key={current.id}
+						className={cx(
+							"font-mono text-[0.8125rem] leading-relaxed text-muted",
+							current.kind === "match" && "text-match-include",
+						)}
+					>
+						{current.kind === "match" && (
+							<span className="mr-2 label-caps text-match-include">match</span>
+						)}
+						{current.text}
+					</p>
+				) : (
+					<p className="font-mono text-[0.8125rem] text-faint">
+						Watching {activity.recentRuns.length} recent runs for the next chunk...
+					</p>
+				)}
+			</div>
+		</Panel>
+	);
+}
+
 function Home() {
-	const rows = Route.useLoaderData();
+	const { mentions: rows, activity } = Route.useLoaderData();
 	const { category, setCategory, tag, setTag, counts, filtered } =
 		useMentionFilters(rows);
 	const hasFilter = category !== null || tag !== null;
@@ -150,6 +344,8 @@ function Home() {
 				<p className="mt-5 max-w-xl text-lg text-muted">
 					Marlon watches for the words that matter to your Brando.
 				</p>
+
+				<ActivityTicker activity={activity} />
 
 				<Panel className="mt-16 overflow-hidden">
 					<PanelHeader

@@ -22,6 +22,13 @@
       "when": 1787244077639,
       "tag": "0002_bent_human_torch",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1787251502065,
+      "tag": "0003_yellow_amphibian",
+      "breakpoints": true
     }
   ]
 }
