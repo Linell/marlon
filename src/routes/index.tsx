@@ -168,6 +168,13 @@ function ActivityTicker({
 	const [itemIndex, setItemIndex] = useState(0);
 	const itemId = useRef(0);
 	const mintToken = useServerFn(mintActivitySubscriptionToken);
+	const subscriptionToken = useMemo(() => {
+		if (!token) return null;
+		return {
+			...token,
+			app: { apiBaseUrl: token.apiBaseUrl },
+		} as any;
+	}, [token]);
 
 	useEffect(() => {
 		const timer = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -192,14 +199,17 @@ function ActivityTicker({
 	}, [mintToken]);
 
 	const subscription = useInngestSubscription({
-		token: token as any,
-		enabled: token !== null,
+		token: subscriptionToken,
+		enabled: subscriptionToken !== null,
 		bufferInterval: 250,
 		refreshToken: async () => {
 			const next = await mintToken();
 			setToken(next);
 			setTokenError(null);
-			return next as any;
+			return {
+				...next,
+				app: { apiBaseUrl: next.apiBaseUrl },
+			} as any;
 		},
 	});
 

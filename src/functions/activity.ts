@@ -12,10 +12,16 @@ export const mintActivitySubscriptionToken = createServerFn().handler(async () =
 		topics: [...activityTopics],
 	});
 
+	const apiBaseUrl =
+		process.env.INNGEST_BASE_URL ??
+		process.env.INNGEST_API_BASE_URL ??
+		"https://api.inngest.com";
+
 	return {
 		channel: activityRealtime.name,
 		topics: [...activityTopics],
 		key: token.key,
+		apiBaseUrl,
 	};
 });
 
