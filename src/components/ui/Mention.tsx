@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { splitOnTerm } from "#/lib/match";
 import { CategoryChip, SourceChip, TagChip } from "./Chip";
 import { cx } from "./cx";
 import type { Category, Tag } from "./registry";
@@ -49,6 +50,50 @@ const SENTIMENT_EDGE = {
 	neutral: "border-l-sentiment-neutral",
 } as const;
 
+const COLLAPSED_PREVIEW_MAX_CHARS = 300;
+const COLLAPSED_PREVIEW_MATCH_LEAD = 40;
+
+function previewAroundFirstMatch(
+	body: Array<{ text: string; match?: boolean }>,
+	term: string,
+): Array<{ text: string; match?: boolean }> {
+	const full = body.map((part) => part.text).join("");
+	if (full.length <= COLLAPSED_PREVIEW_MAX_CHARS) return body;
+
+	let cursor = 0;
+	let firstMatchStart = -1;
+	let firstMatchEnd = -1;
+
+	for (const part of body) {
+		const next = cursor + part.text.length;
+		if (part.match) {
+			firstMatchStart = cursor;
+			firstMatchEnd = next;
+			break;
+		}
+		cursor = next;
+	}
+
+	if (firstMatchStart < 0 || firstMatchEnd < 0) {
+		const fallback = `${full.slice(0, COLLAPSED_PREVIEW_MAX_CHARS).trimEnd()} ...`;
+		return splitOnTerm(fallback, term);
+	}
+
+	let start = Math.max(0, firstMatchStart - COLLAPSED_PREVIEW_MATCH_LEAD);
+	let end = Math.min(full.length, start + COLLAPSED_PREVIEW_MAX_CHARS);
+
+	if (firstMatchEnd > end) {
+		end = firstMatchEnd;
+		start = Math.max(0, end - COLLAPSED_PREVIEW_MAX_CHARS);
+	}
+
+	const prefix = start > 0 ? "... " : "";
+	const suffix = end < full.length ? " ..." : "";
+	const excerpt = `${prefix}${full.slice(start, end).trim()}${suffix}`;
+
+	return splitOnTerm(excerpt, term);
+}
+
 export function Mention({
 	data,
 	className,
@@ -63,11 +108,15 @@ export function Mention({
 	const [expanded, setExpanded] = useState(false);
 	const bodyLength = data.body.reduce((n, part) => n + part.text.length, 0);
 	const clampable = bodyLength > 280;
+	const visibleBody =
+		clampable && !expanded
+			? previewAroundFirstMatch(data.body, data.keyword)
+			: data.body;
 
 	/* A text run's identity is where it starts in the body, so key on the
 	   running character offset rather than the array index. */
 	let offset = 0;
-	const parts = data.body.map((part) => {
+	const parts = visibleBody.map((part) => {
 		const key = `${offset}:${part.text.length}`;
 		offset += part.text.length;
 		return { ...part, key };
@@ -118,8 +167,8 @@ export function Mention({
 						) : (
 							<span className="meta">{data.at}</span>
 						)}
-						{data.type === "comment" &&
-							(data.thread ? (
+						{data.type === "comment" ? (
+							data.thread ? (
 								<a
 									href={data.thread.href}
 									target="_blank"
@@ -127,11 +176,14 @@ export function Mention({
 									className="meta min-w-0 truncate text-muted hover:text-loud hover:underline"
 									title={data.thread.title}
 								>
-									· on “{data.thread.title}”
+									· on "{data.thread.title}"
 								</a>
 							) : (
 								<span className="meta text-faint">· reply</span>
-							))}
+							)
+						) : (
+							<span className="meta text-faint">· root story</span>
+						)}
 						<span className="ml-auto flex items-center gap-2">
 							{data.category && (
 								<CategoryChip category={data.category} form="label" dot />
