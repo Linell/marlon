@@ -1,0 +1,1 @@
+ALTER TABLE `keywords` ADD `aliases` text DEFAULT '[]' NOT NULL;

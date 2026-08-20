@@ -13,12 +13,14 @@ import type { Tag } from "./registry";
 
 export function KeywordRule({
 	keyword,
+	aliases = [],
 	tag,
 	include = [],
 	exclude = [],
 	className,
 }: {
 	keyword: string;
+	aliases?: string[];
 	tag: Tag;
 	include?: string[];
 	exclude?: string[];
@@ -29,6 +31,12 @@ export function KeywordRule({
 			className={cx("flex flex-wrap items-center gap-2 px-4 py-3", className)}
 		>
 			<span className="font-mono text-sm font-bold text-loud">{keyword}</span>
+			{aliases.length > 0 && (
+				<span className="font-mono text-sm text-muted">
+					<span className="text-faint">or </span>
+					{aliases.join(", ")}
+				</span>
+			)}
 			<TagChip tag={tag} form="label" />
 
 			<span className="ml-auto flex flex-wrap items-center gap-1.5">

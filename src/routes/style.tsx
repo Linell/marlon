@@ -32,6 +32,7 @@ const SAMPLE: MentionData[] = [
 			{ text: "Inngest", match: true },
 		],
 		keyword: "inngest",
+		matchTerms: ["inngest"],
 		keywordTag: "own",
 		category: "praise",
 		sentiment: "positive",
@@ -51,6 +52,7 @@ const SAMPLE: MentionData[] = [
 			{ text: " retrograde to blame for these long-running workflows?" },
 		],
 		keyword: "mercury",
+		matchTerms: ["mercury", "hermes"],
 		keywordTag: "competitor",
 		category: "question",
 		sentiment: "neutral",
@@ -112,6 +114,7 @@ function StyleGuide() {
 						<KeywordRule keyword="inngest" tag="own" exclude={["ingest"]} />
 						<KeywordRule
 							keyword="mercury"
+							aliases={["hermes", "quicksilver"]}
 							tag="competitor"
 							include={["planet", "retrograde"]}
 							exclude={["car", "dealership"]}

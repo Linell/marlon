@@ -23,13 +23,19 @@ const uuid = () => crypto.randomUUID();
 const now = () => new Date();
 
 /* --- Keywords --------------------------------------------------------------
-   One row per tracked term. `include`/`exclude` are the co-occurrence rules:
-   a post matches when `term` appears, every `include` term (if any) also
-   appears, and no `exclude` term does — the "Mercury, but not car or
-   dealership" case. */
+   One row per tracked topic. `term` is the canonical name; `aliases` are
+   alternate surface forms of the same topic ("AI" or "LLM") — a post matches
+   when any of them appears. `include`/`exclude` are the co-occurrence rules,
+   shared across all forms: every `include` term (if any) must also appear,
+   and no `exclude` term may — the "Mercury, but not car or dealership" case.
+   An alias that needs its own exclude rules should be its own keyword. */
 export const keywords = sqliteTable("keywords", {
 	id: text("id").primaryKey().$defaultFn(uuid),
 	term: text("term").notNull(),
+	aliases: text("aliases", { mode: "json" })
+		.$type<string[]>()
+		.notNull()
+		.default([]),
 	/** Why we watch this word — a `Tag` key from the registry. */
 	tag: text("tag").notNull(),
 	include: text("include", { mode: "json" })

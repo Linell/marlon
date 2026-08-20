@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { splitOnTerm } from "#/lib/match";
+import { splitOnTerms } from "#/lib/match";
 import { CategoryChip, SourceChip, TagChip } from "./Chip";
 import { cx } from "./cx";
 import type { Category, Tag } from "./registry";
@@ -28,6 +28,8 @@ export type MentionData = {
 	body: Array<{ text: string; match?: boolean }>;
 	/** The keyword record that caused this row to be saved. */
 	keyword: string;
+	/** All surface forms of the keyword (term + aliases), for highlighting. */
+	matchTerms: string[];
 	keywordTag: Tag;
 	/** Null until enrichment runs. */
 	category: Category | null;
@@ -55,7 +57,7 @@ const COLLAPSED_PREVIEW_MATCH_LEAD = 40;
 
 function previewAroundFirstMatch(
 	body: Array<{ text: string; match?: boolean }>,
-	term: string,
+	terms: string[],
 ): Array<{ text: string; match?: boolean }> {
 	const full = body.map((part) => part.text).join("");
 	if (full.length <= COLLAPSED_PREVIEW_MAX_CHARS) return body;
@@ -76,7 +78,7 @@ function previewAroundFirstMatch(
 
 	if (firstMatchStart < 0 || firstMatchEnd < 0) {
 		const fallback = `${full.slice(0, COLLAPSED_PREVIEW_MAX_CHARS).trimEnd()} ...`;
-		return splitOnTerm(fallback, term);
+		return splitOnTerms(fallback, terms);
 	}
 
 	let start = Math.max(0, firstMatchStart - COLLAPSED_PREVIEW_MATCH_LEAD);
@@ -91,7 +93,7 @@ function previewAroundFirstMatch(
 	const suffix = end < full.length ? " ..." : "";
 	const excerpt = `${prefix}${full.slice(start, end).trim()}${suffix}`;
 
-	return splitOnTerm(excerpt, term);
+	return splitOnTerms(excerpt, terms);
 }
 
 export function Mention({
@@ -110,7 +112,7 @@ export function Mention({
 	const clampable = bodyLength > 280;
 	const visibleBody =
 		clampable && !expanded
-			? previewAroundFirstMatch(data.body, data.keyword)
+			? previewAroundFirstMatch(data.body, data.matchTerms)
 			: data.body;
 
 	/* A text run's identity is where it starts in the body, so key on the

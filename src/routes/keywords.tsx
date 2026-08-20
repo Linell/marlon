@@ -89,6 +89,7 @@ function KeywordRow({ row }: { row: Keyword }) {
 				<KeywordForm
 					initial={{
 						term: row.term,
+						aliases: row.aliases.join(", "),
 						tag: row.tag as Tag,
 						include: row.include.join(", "),
 						exclude: row.exclude.join(", "),
@@ -110,6 +111,7 @@ function KeywordRow({ row }: { row: Keyword }) {
 			<KeywordRule
 				className="min-w-0 flex-1"
 				keyword={row.term}
+				aliases={row.aliases}
 				tag={row.tag as Tag}
 				include={row.include}
 				exclude={row.exclude}
@@ -152,10 +154,17 @@ function KeywordRow({ row }: { row: Keyword }) {
    Shared between the create panel and the inline row editor. Include/exclude
    are edited as comma-separated text and split on submit. */
 
-type FormValues = { term: string; tag: Tag; include: string; exclude: string };
+type FormValues = {
+	term: string;
+	aliases: string;
+	tag: Tag;
+	include: string;
+	exclude: string;
+};
 
 const EMPTY_FORM: FormValues = {
 	term: "",
+	aliases: "",
 	tag: "own",
 	include: "",
 	exclude: "",
@@ -179,6 +188,7 @@ function KeywordForm({
 	submitLabel: string;
 	onSubmit: (values: {
 		term: string;
+		aliases: string[];
 		tag: Tag;
 		include: string[];
 		exclude: string[];
@@ -197,6 +207,7 @@ function KeywordForm({
 		try {
 			await onSubmit({
 				term: form.term,
+				aliases: splitTerms(form.aliases),
 				tag: form.tag,
 				include: splitTerms(form.include),
 				exclude: splitTerms(form.exclude),
@@ -217,6 +228,15 @@ function KeywordForm({
 					onChange={(e) => setForm({ ...form, term: e.target.value })}
 					placeholder="Mercury"
 					required
+				/>
+			</Field>
+
+			<Field label="Or Aliases" hint="other forms of the same topic">
+				<input
+					className={INPUT}
+					value={form.aliases}
+					onChange={(e) => setForm({ ...form, aliases: e.target.value })}
+					placeholder="Hermes, quicksilver"
 				/>
 			</Field>
 

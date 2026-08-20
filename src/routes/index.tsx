@@ -27,7 +27,7 @@ import {
 	listMentionsByIds,
 	type MentionRow,
 } from "#/functions/mentions";
-import { splitOnTerm } from "#/lib/match";
+import { matchTerms, splitOnTerms } from "#/lib/match";
 
 export const Route = createFileRoute("/")({
 	loader: async () => {
@@ -56,13 +56,13 @@ function asDate(value: Date | string | null | undefined): Date | null {
 }
 
 /** Whichever field the keyword actually matched, so the highlight shows. */
-function matchedBody(row: MentionRow): string {
+function matchedBody(row: MentionRow, terms: string[]): string {
 	const [primary, secondary] =
 		row.type === "comment"
 			? [row.bodyText, row.title]
 			: [row.title, row.bodyText];
 	for (const text of [primary, secondary]) {
-		if (text && splitOnTerm(text, row.term).some((run) => run.match)) {
+		if (text && splitOnTerms(text, terms).some((run) => run.match)) {
 			return text;
 		}
 	}
@@ -70,13 +70,15 @@ function matchedBody(row: MentionRow): string {
 }
 
 function toMentionData(row: MentionRow): MentionData {
+	const terms = matchTerms(row);
 	return {
 		id: row.id,
 		source: row.source,
 		type: row.type === "comment" ? "comment" : "story",
 		author: row.author ?? "unknown",
-		body: splitOnTerm(matchedBody(row), row.term),
+		body: splitOnTerms(matchedBody(row, terms), terms),
 		keyword: row.term,
+		matchTerms: terms,
 		keywordTag: row.tag as Tag,
 		category: row.category as Category | null,
 		at: timeAgo(row.postedAt ?? row.createdAt),

@@ -13,6 +13,7 @@ import { keywords } from "#/db/schema";
 
 type KeywordInput = {
 	term: string;
+	aliases: string[];
 	tag: Tag;
 	include: string[];
 	exclude: string[];
@@ -47,10 +48,15 @@ function validateKeywordInput(data: unknown): KeywordInput {
 		throw new Error(`Unknown tag "${String(tag)}"`);
 	}
 
+	const canonical = term.trim();
+	// An alias equal to the term adds nothing; drop it rather than reject.
+	const aliases = cleanTerms((data as Record<string, unknown>).aliases).filter(
+		(alias) => alias.toLowerCase() !== canonical.toLowerCase(),
+	);
 	const include = cleanTerms((data as Record<string, unknown>).include);
 	const exclude = cleanTerms((data as Record<string, unknown>).exclude);
 
-	return { term: term.trim(), tag: tag as Tag, include, exclude };
+	return { term: canonical, aliases, tag: tag as Tag, include, exclude };
 }
 
 export const listKeywords = createServerFn().handler(async () => {

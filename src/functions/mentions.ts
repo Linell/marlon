@@ -24,6 +24,7 @@ const mentionSelect = {
 	threadPermalink: items.threadPermalink,
 	postedAt: items.postedAt,
 	term: keywords.term,
+	aliases: keywords.aliases,
 	tag: keywords.tag,
 };
 
