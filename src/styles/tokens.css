@@ -85,6 +85,7 @@
 
 	/* Sources. Nudged off true brand hues to survive on a warm-black ground. */
 	--source-hackernews: #f26522;
+	--source-lobsters: #dd4444;
 	--source-linkedin: #4a90d9;
 	--source-x: var(--ink-100);
 	--source-reddit: #e0603a;

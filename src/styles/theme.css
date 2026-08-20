@@ -48,6 +48,7 @@
 	/* --- Color: domain ---------------------------------------------------- */
 	/* Add a source here and it is instantly available as bg-/text-/border-. */
 	--color-source-hackernews: var(--source-hackernews);
+	--color-source-lobsters: var(--source-lobsters);
 	--color-source-linkedin: var(--source-linkedin);
 	--color-source-x: var(--source-x);
 	--color-source-reddit: var(--source-reddit);

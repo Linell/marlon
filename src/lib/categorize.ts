@@ -18,9 +18,8 @@ export type Categorizer = {
 };
 
 const PATTERNS: Array<[Category, RegExp]> = [
-	// A question mark is the strongest actionable signal the team has.
 	// End-of-word only, so URL query strings don't count.
-	["question", /\?(\s|$)/],
+	["question", /\?(\s|$)/], // literally looking for a question mark
 	[
 		"request",
 		/\b(feature request|would be (nice|great|cool)|wish (it|there|they)|please add|any plans? (to|for)|support for)\b/i,
@@ -46,5 +45,4 @@ const rules: Categorizer = {
 	},
 };
 
-/** The active implementation. Point this at an LLM categorizer someday. */
 export const categorizer: Categorizer = rules;

@@ -1,4 +1,5 @@
 import { hackernews } from "./hackernews";
+import { lobsters } from "./lobsters";
 import type { SourceAdapter } from "./types";
 
 /**
@@ -8,6 +9,7 @@ import type { SourceAdapter } from "./types";
  */
 export const adapters = {
 	hackernews,
+	lobsters,
 } as const satisfies Record<string, SourceAdapter>;
 
 export function getAdapter(source: string): SourceAdapter | undefined {

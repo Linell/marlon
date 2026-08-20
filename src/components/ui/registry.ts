@@ -35,6 +35,12 @@ export const SOURCES = {
 		chip: "text-source-hackernews border-source-hackernews/35 bg-source-hackernews/10",
 		fg: "text-source-hackernews",
 	},
+	lobsters: {
+		label: "Lobsters",
+		code: "LB",
+		chip: "text-source-lobsters border-source-lobsters/35 bg-source-lobsters/10",
+		fg: "text-source-lobsters",
+	},
 	linkedin: {
 		label: "LinkedIn",
 		code: "LI",
