@@ -67,6 +67,11 @@ export const items = sqliteTable(
 		/** The id the source uses, e.g. an HN item id. */
 		sourceId: text("source_id").notNull(),
 		sourceParentId: text("source_parent_id"),
+		/** Thread-root context for comments, resolved at import time by the
+		    adapter (an HN comment's story title/link). Null for top-level items
+		    and when resolution failed. */
+		threadTitle: text("thread_title"),
+		threadPermalink: text("thread_permalink"),
 		/** Source vocabulary: "story", "comment", … */
 		type: text("type").notNull(),
 		title: text("title"),

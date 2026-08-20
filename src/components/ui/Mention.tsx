@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { CategoryChip, SourceChip, TagChip } from "./Chip";
 import { cx } from "./cx";
 import type { Category, Tag } from "./registry";
@@ -31,6 +32,10 @@ export type MentionData = {
 	category: Category | null;
 	sentiment?: "positive" | "negative" | "neutral";
 	at: string;
+	/** Canonical link back to the item on its platform. */
+	permalink?: string;
+	/** Thread-root context — the story a comment lives under. */
+	thread?: { title: string; href: string };
 	/** HN score / reactions. Optional because not every source has them. */
 	score?: number;
 	replies?: number;
@@ -52,6 +57,12 @@ export function Mention({
 	className?: string;
 }) {
 	const depth = data.depth ?? 0;
+
+	/* Long bodies collapse to a few lines so the timeline stays scannable;
+	   the threshold keeps short comments from growing a pointless toggle. */
+	const [expanded, setExpanded] = useState(false);
+	const bodyLength = data.body.reduce((n, part) => n + part.text.length, 0);
+	const clampable = bodyLength > 280;
 
 	/* A text run's identity is where it starts in the body, so key on the
 	   running character offset rather than the array index. */
@@ -95,19 +106,46 @@ export function Mention({
 						<SourceChip source={data.source} form="code" />
 						<span className="meta text-loud">{data.author}</span>
 						<span className="meta text-faint">·</span>
-						<span className="meta">{data.at}</span>
-						{data.type === "comment" && (
-							<span className="meta text-faint">· reply</span>
+						{data.permalink ? (
+							<a
+								href={data.permalink}
+								target="_blank"
+								rel="noreferrer"
+								className="meta hover:text-loud hover:underline"
+							>
+								{data.at}
+							</a>
+						) : (
+							<span className="meta">{data.at}</span>
 						)}
+						{data.type === "comment" &&
+							(data.thread ? (
+								<a
+									href={data.thread.href}
+									target="_blank"
+									rel="noreferrer"
+									className="meta min-w-0 truncate text-muted hover:text-loud hover:underline"
+									title={data.thread.title}
+								>
+									· on “{data.thread.title}”
+								</a>
+							) : (
+								<span className="meta text-faint">· reply</span>
+							))}
 						<span className="ml-auto flex items-center gap-2">
 							{data.category && (
-								<CategoryChip category={data.category} form="code" />
+								<CategoryChip category={data.category} form="label" dot />
 							)}
 						</span>
 					</div>
 
 					{/* Body: the only sans-serif text in the row. */}
-					<p className="mt-2 text-body">
+					<p
+						className={cx(
+							"mt-2 text-body",
+							clampable && !expanded && "line-clamp-3",
+						)}
+					>
 						{parts.map((part) =>
 							part.match ? (
 								<mark
@@ -121,6 +159,15 @@ export function Mention({
 							),
 						)}
 					</p>
+					{clampable && (
+						<button
+							type="button"
+							onClick={() => setExpanded((v) => !v)}
+							className="meta mt-1 cursor-pointer text-faint hover:text-loud"
+						>
+							{expanded ? "show less" : "show more"}
+						</button>
+					)}
 
 					{/* Footer: why it matched, plus source-specific counts. */}
 					<div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">

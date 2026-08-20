@@ -22,6 +22,8 @@ type ChipProps = {
 	/** Show a leading token-colored dot. */
 	dot?: boolean;
 	className?: string;
+	/** Trailing extras, e.g. a count in a filter chip. */
+	children?: React.ReactNode;
 };
 
 export function Chip({
@@ -29,6 +31,7 @@ export function Chip({
 	form = "label",
 	dot = false,
 	className,
+	children,
 }: ChipProps) {
 	return (
 		<span
@@ -42,6 +45,7 @@ export function Chip({
 		>
 			{dot && <span className="size-1.5 rounded-full bg-current" aria-hidden />}
 			{form === "code" ? entry.code : entry.label}
+			{children}
 		</span>
 	);
 }

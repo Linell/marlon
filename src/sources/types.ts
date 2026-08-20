@@ -26,4 +26,12 @@ export interface SourceAdapter {
 		nextCursor: string;
 		done: boolean;
 	}>;
+	/**
+	 * Resolve the thread root (story title + link) for a matched comment.
+	 * Called only for items that matched a keyword, so it may cost extra
+	 * requests. Return null when the root can't be resolved.
+	 */
+	resolveThread?(
+		item: SourceItem,
+	): Promise<{ title: string | null; permalink: string } | null>;
 }

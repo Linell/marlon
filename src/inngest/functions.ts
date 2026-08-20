@@ -159,6 +159,19 @@ export const importSource = inngest.createFunction(
 					}))
 					.filter(({ hits }) => hits.length > 0);
 
+				// Thread context only for matches — extra requests per hit, not
+				// per scanned item. A failed walk just leaves the context null.
+				if (adapter.resolveThread) {
+					for (const { item } of matched) {
+						if (item.sourceParentId == null) continue;
+						const root = await adapter.resolveThread(item).catch(() => null);
+						if (root) {
+							item.threadTitle = root.title;
+							item.threadPermalink = root.permalink;
+						}
+					}
+				}
+
 				const refs = await storeMatches(source, matched);
 
 				await db

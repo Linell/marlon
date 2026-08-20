@@ -22,6 +22,8 @@ const PAGE_SIZE = 150;
 const FETCH_CONCURRENCY = 25;
 /** Stay this many ids behind maxitem. */
 const LAG_CEILING = 50;
+/** Parent hops allowed when walking a comment up to its story. */
+const MAX_THREAD_DEPTH = 40;
 
 type HnItem = {
 	id: number;
@@ -119,5 +121,22 @@ export const hackernews: SourceAdapter = {
 			.filter((item): item is SourceItem => item != null);
 
 		return { items, nextCursor: String(end), done: end >= ceiling };
+	},
+
+	async resolveThread(item) {
+		if (item.sourceParentId == null) return null;
+		let id = Number.parseInt(item.sourceParentId, 10);
+		for (let hop = 0; hop < MAX_THREAD_DEPTH; hop++) {
+			const parent = await getJson<HnItem | null>(`item/${id}`);
+			if (!parent) return null;
+			if (parent.parent == null) {
+				return {
+					title: parent.title ? normalizeHtml(parent.title) : null,
+					permalink: `https://news.ycombinator.com/item?id=${parent.id}`,
+				};
+			}
+			id = parent.parent;
+		}
+		return null;
 	},
 };
