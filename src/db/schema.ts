@@ -50,15 +50,16 @@ export const keywords = sqliteTable("keywords", {
 		.$onUpdateFn(now),
 });
 
-/* --- Posts -----------------------------------------------------------------
+/* --- Items -----------------------------------------------------------------
    One row per matched piece of content, normalized across sources. Only
-   matches are stored — the firehose is matched in memory and discarded.
+   matches are stored — the firehose is matched in memory and discarded, so
+   keyword edits never rematch old content.
 
    `sourceParentId` is the *source's* id for the parent (an HN item id), not a
    self-reference: we usually match a comment whose parent we never imported.
    If the parent was imported too, it can be found via (source, sourceId). */
-export const posts = sqliteTable(
-	"posts",
+export const items = sqliteTable(
+	"items",
 	{
 		id: text("id").primaryKey().$defaultFn(uuid),
 		/** A `Source` key from the registry, e.g. "hackernews". */
@@ -72,9 +73,9 @@ export const posts = sqliteTable(
 		author: text("author"),
 		/** Normalized plain text — HTML stripped, entities decoded. */
 		bodyText: text("body_text"),
-		/** Outbound link the post points at (an HN story's `url`). */
+		/** Outbound link the item points at (an HN story's `url`). */
 		url: text("url"),
-		/** Canonical link back to the post on its platform. */
+		/** Canonical link back to the item on its platform. */
 		permalink: text("permalink").notNull(),
 		postedAt: integer("posted_at", { mode: "timestamp" }),
 		/** Verbatim source payload, for re-enrichment and debugging. */
@@ -83,21 +84,23 @@ export const posts = sqliteTable(
 			.notNull()
 			.$defaultFn(now),
 	},
-	(t) => [uniqueIndex("posts_source_source_id").on(t.source, t.sourceId)],
+	(t) => [uniqueIndex("items_source_source_id").on(t.source, t.sourceId)],
 );
 
 /* --- Mentions ----------------------------------------------------------------
-   The join between a post and the keyword that surfaced it, and the home of
-   enrichment output. A post mentioning two tracked keywords gets two rows.
+   The join between an item and the keyword that surfaced it, and the home of
+   enrichment output. An item mentioning two tracked keywords gets two rows.
+   `category IS NULL` means enrichment hasn't run yet; there is no status
+   column.
    `categorizedBy` records which enrichment path ran ("rules" today, "llm"
    maybe later) so swapping implementations stays observable. */
 export const mentions = sqliteTable(
 	"mentions",
 	{
 		id: text("id").primaryKey().$defaultFn(uuid),
-		postId: text("post_id")
+		itemId: text("item_id")
 			.notNull()
-			.references(() => posts.id, { onDelete: "cascade" }),
+			.references(() => items.id, { onDelete: "cascade" }),
 		keywordId: text("keyword_id")
 			.notNull()
 			.references(() => keywords.id, { onDelete: "cascade" }),
@@ -108,7 +111,7 @@ export const mentions = sqliteTable(
 			.notNull()
 			.$defaultFn(now),
 	},
-	(t) => [uniqueIndex("mentions_post_keyword").on(t.postId, t.keywordId)],
+	(t) => [uniqueIndex("mentions_item_keyword").on(t.itemId, t.keywordId)],
 );
 
 /* --- Source cursors ----------------------------------------------------------
@@ -125,7 +128,7 @@ export const sourceCursors = sqliteTable("source_cursors", {
 
 export type Keyword = typeof keywords.$inferSelect;
 export type NewKeyword = typeof keywords.$inferInsert;
-export type Post = typeof posts.$inferSelect;
-export type NewPost = typeof posts.$inferInsert;
+export type Item = typeof items.$inferSelect;
+export type NewItem = typeof items.$inferInsert;
 export type Mention = typeof mentions.$inferSelect;
 export type NewMention = typeof mentions.$inferInsert;

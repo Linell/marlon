@@ -6,9 +6,9 @@ import type { Category, Tag } from "./registry";
  * MENTION — the atom of the whole product.
  *
  * Design decisions worth keeping as this grows:
- *  - The post body is the loudest thing in the row. Everything else is
+ *  - The body is the loudest thing in the row. Everything else is
  *    metadata set in mono at 12px, so the eye lands on words people wrote.
- *  - Threading (posts.parent_id) is drawn with a single left hairline per
+ *  - Threading (items.source_parent_id) is drawn with a single left hairline per
  *    depth rung, not nested cards. Nested cards collapse into mush by depth 3.
  *  - Sentiment is a 2px edge on the left, never a badge. It is a hint the team
  *    mostly ignores, and it should cost zero attention until wanted.
@@ -27,13 +27,14 @@ export type MentionData = {
 	/** The keyword record that caused this row to be saved. */
 	keyword: string;
 	keywordTag: Tag;
-	category: Category;
+	/** Null until enrichment runs. */
+	category: Category | null;
 	sentiment?: "positive" | "negative" | "neutral";
 	at: string;
 	/** HN score / reactions. Optional because not every source has them. */
 	score?: number;
 	replies?: number;
-	/** parent_id nesting depth. 0 = top-level post. */
+	/** source_parent_id nesting depth. 0 = top-level item. */
 	depth?: number;
 };
 
@@ -99,7 +100,9 @@ export function Mention({
 							<span className="meta text-faint">· reply</span>
 						)}
 						<span className="ml-auto flex items-center gap-2">
-							<CategoryChip category={data.category} form="code" />
+							{data.category && (
+								<CategoryChip category={data.category} form="code" />
+							)}
 						</span>
 					</div>
 
