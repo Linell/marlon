@@ -1,15 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { serve } from "inngest/edge";
 import { inngest } from "#/inngest/client";
-import {
-	enrichMention,
-	importSource,
-	scheduleImports,
-} from "#/inngest/functions";
+import { functions } from "#/inngest/fns";
 
 const handler = serve({
 	client: inngest,
-	functions: [scheduleImports, importSource, enrichMention],
+	functions,
 });
 
 export const Route = createFileRoute("/api/inngest")({

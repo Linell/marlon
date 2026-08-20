@@ -1,5 +1,5 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
-import { cron, NonRetriableError } from "inngest";
+import { and, eq, inArray } from "drizzle-orm";
+import { NonRetriableError } from "inngest";
 import { db } from "#/db/client";
 import {
 	items,
@@ -8,35 +8,14 @@ import {
 	mentions,
 	sourceCursors,
 } from "#/db/schema";
-import { categorizer } from "#/lib/categorize";
 import { matchKeywords } from "#/lib/match";
-import { adapters, getAdapter } from "#/sources";
+import { getAdapter } from "#/sources";
 import type { SourceItem } from "#/sources/types";
-import { inngest } from "./client";
-import { mentionCreated, sourceImportRequested } from "./events";
-
-/**
- * THE IMPORT PIPELINE
- * -----------------------------------------------------------------------------
- * cron ─▶ schedule-imports ─▶ import.requested ─▶ import-source ─▶
- * mention.created ─▶ enrich-mention
- */
+import { inngest } from "../client";
+import { mentionCreated, sourceImportRequested } from "../events";
 
 /** Chunks (adapter pages) walked per run; the next cron tick continues. */
 const MAX_CHUNKS_PER_RUN = 20;
-
-/* --- schedule-imports: cron fan-out, one import.requested per source. ----- */
-export const scheduleImports = inngest.createFunction(
-	{ id: "schedule-imports", triggers: [cron("*/15 * * * *")] },
-	async ({ step }) => {
-		const sources = Object.keys(adapters);
-		await step.sendEvent(
-			"fan-out",
-			sources.map((source) => sourceImportRequested.create({ source })),
-		);
-		return { requested: sources.length };
-	},
-);
 
 type MentionRef = { mentionId: string; itemId: string; keywordId: string };
 
@@ -203,36 +182,5 @@ export const importSource = inngest.createFunction(
 		}
 
 		return { source, scanned, mentionEvents: emitted };
-	},
-);
-
-/* --- enrich-mention ----------------------------------------------------------
-   Categorization behind the swappable `categorizer`. The UPDATE only fires
-   while category IS NULL, so duplicate events are harmless. Limit 2 because
-   libsql has a single writer. */
-export const enrichMention = inngest.createFunction(
-	{
-		id: "enrich-mention",
-		triggers: [mentionCreated],
-		concurrency: { limit: 2 },
-	},
-	async ({ event, step }) => {
-		const { mentionId, itemId } = event.data;
-		return step.run("categorize", async () => {
-			const [item] = await db
-				.select({ title: items.title, bodyText: items.bodyText })
-				.from(items)
-				.where(eq(items.id, itemId));
-			if (!item) return { applied: false, reason: "item missing" };
-
-			const category = categorizer.categorize(item);
-			const updated = await db
-				.update(mentions)
-				.set({ category, categorizedBy: categorizer.id })
-				.where(and(eq(mentions.id, mentionId), isNull(mentions.category)))
-				.returning({ id: mentions.id });
-
-			return { category, applied: updated.length > 0 };
-		});
 	},
 );
