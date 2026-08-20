@@ -292,6 +292,11 @@ function ActivityTicker({
 	const status = lastRunSummary && completedAt
 		? `Last import ${timeAgo(completedAt, now)} · ${lastRunSummary.itemsChecked} checked · ${lastRunSummary.matchCount} matches`
 		: "Last import pending · 0 checked · 0 matches";
+	const idleTickerText = tokenError
+		? "Live activity unavailable"
+		: subscription.state === "active"
+			? "No live import activity right now"
+			: "Connecting to live activity...";
 
 	return (
 		<Panel className="mt-10 overflow-hidden">
@@ -324,7 +329,7 @@ function ActivityTicker({
 					</p>
 				) : (
 					<p className="font-mono text-[0.8125rem] text-faint">
-						Watching {activity.recentRuns.length} recent runs for the next chunk...
+						{idleTickerText}
 					</p>
 				)}
 			</div>
