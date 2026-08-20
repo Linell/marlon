@@ -4,6 +4,7 @@ import { items, mentions } from "#/db/schema";
 import { categorizer } from "#/lib/categorize";
 import { inngest } from "../client";
 import { mentionCreated } from "../events";
+import { activityRealtime } from "../realtime";
 
 /* --- enrich-mention ----------------------------------------------------------
    Categorization behind the swappable `categorizer`. The UPDATE only fires
@@ -17,12 +18,14 @@ export const enrichMention = inngest.createFunction(
 	},
 	async ({ event, step }) => {
 		const { mentionId, itemId } = event.data;
-		return step.run("categorize", async () => {
+		const result = await step.run("categorize", async () => {
 			const [item] = await db
 				.select({ title: items.title, bodyText: items.bodyText })
 				.from(items)
 				.where(eq(items.id, itemId));
-			if (!item) return { applied: false, reason: "item missing" };
+			if (!item) {
+				return { applied: false, category: null, reason: "item missing" };
+			}
 
 			const category = categorizer.categorize(item);
 			const updated = await db
@@ -33,5 +36,15 @@ export const enrichMention = inngest.createFunction(
 
 			return { category, applied: updated.length > 0 };
 		});
+
+		if (result.applied && result.category !== null) {
+			await step.realtime.publish(
+				`activity-mention-categorized-${mentionId}`,
+				activityRealtime["mention.categorized"],
+				{ mentionId, category: result.category },
+			);
+		}
+
+		return result;
 	},
 );

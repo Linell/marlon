@@ -248,3 +248,23 @@
 	background-image: var(--grid-image);
 	background-size: var(--grid-image-size);
 }
+
+@keyframes mention-arrive {
+	0% {
+		background-color: color-mix(
+			in oklab,
+			var(--match-include) 16%,
+			transparent
+		);
+	}
+	65% {
+		background-color: color-mix(in oklab, var(--match-include) 8%, transparent);
+	}
+	100% {
+		background-color: transparent;
+	}
+}
+
+@utility mention-arrive {
+	animation: mention-arrive 1800ms cubic-bezier(0.16, 1, 0.3, 1) 1;
+}

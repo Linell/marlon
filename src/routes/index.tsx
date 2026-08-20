@@ -1,7 +1,8 @@
+import type { Realtime } from "@inngest/realtime";
 import { useInngestSubscription } from "@inngest/realtime/hooks";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "#/components/Shell";
 import { Button } from "#/components/ui/Button";
 import { Chip } from "#/components/ui/Chip";
@@ -21,7 +22,11 @@ import {
 	type ImportActivityPayload,
 	mintActivitySubscriptionToken,
 } from "#/functions/activity";
-import { listMentions, type MentionRow } from "#/functions/mentions";
+import {
+	listMentions,
+	listMentionsByIds,
+	type MentionRow,
+} from "#/functions/mentions";
 import { splitOnTerm } from "#/lib/match";
 
 export const Route = createFileRoute("/")({
@@ -81,6 +86,43 @@ function toMentionData(row: MentionRow): MentionData {
 				? { title: row.threadTitle, href: row.threadPermalink }
 				: undefined,
 	};
+}
+
+function mentionCreatedAtMs(row: MentionRow): number {
+	const createdAt = asDate(row.createdAt);
+	return createdAt ? createdAt.getTime() : 0;
+}
+
+function upsertMentionRows(
+	rows: MentionRow[],
+	incoming: MentionRow[],
+): MentionRow[] {
+	if (incoming.length === 0) return rows;
+
+	const byId = new Map<string, MentionRow>();
+	for (const row of rows) byId.set(row.id, row);
+	for (const row of incoming) byId.set(row.id, row);
+
+	return [...byId.values()]
+		.sort((a, b) => mentionCreatedAtMs(b) - mentionCreatedAtMs(a))
+		.slice(0, 100);
+}
+
+function applyMentionCategoryUpdates(
+	rows: MentionRow[],
+	updates: Map<string, string>,
+): MentionRow[] {
+	if (updates.size === 0) return rows;
+
+	let changed = false;
+	const next = rows.map((row) => {
+		const category = updates.get(row.id);
+		if (category === undefined || row.category === category) return row;
+		changed = true;
+		return { ...row, category: category as MentionRow["category"] };
+	});
+
+	return changed ? next : rows;
 }
 
 /* --- Filter bar --------------------------------------------------------------
@@ -154,27 +196,35 @@ type ActivityTickerItem = {
 };
 
 type ActivityToken = Awaited<ReturnType<typeof mintActivitySubscriptionToken>>;
+type ActivitySubscriptionToken = ActivityToken & {
+	app: { apiBaseUrl: string };
+};
+type ActivitySubscription = ReturnType<typeof useInngestSubscription>;
+type ActivityMessage = ActivitySubscription["freshData"][number];
+type ActivityState = ActivitySubscription["state"];
+
+type LiveIndicator = {
+	label: "live" | "connecting" | "offline";
+	bubbleClassName: string;
+	dotClassName: string;
+};
 
 function ActivityTicker({
 	activity,
+	freshData,
+	subscriptionState,
+	tokenError,
 }: {
 	activity: ImportActivityPayload;
+	freshData: ActivityMessage[];
+	subscriptionState: ActivityState;
+	tokenError: string | null;
 }) {
 	const [lastRunSummary, setLastRunSummary] = useState(activity.lastRunSummary);
 	const [now, setNow] = useState(() => Date.now());
-	const [token, setToken] = useState<ActivityToken | null>(null);
-	const [tokenError, setTokenError] = useState<string | null>(null);
 	const [items, setItems] = useState<ActivityTickerItem[]>([]);
 	const [itemIndex, setItemIndex] = useState(0);
 	const itemId = useRef(0);
-	const mintToken = useServerFn(mintActivitySubscriptionToken);
-	const subscriptionToken = useMemo(() => {
-		if (!token) return null;
-		return {
-			...token,
-			app: { apiBaseUrl: token.apiBaseUrl },
-		} as any;
-	}, [token]);
 
 	useEffect(() => {
 		const timer = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -182,43 +232,15 @@ function ActivityTicker({
 	}, []);
 
 	useEffect(() => {
-		let cancelled = false;
-		mintToken()
-			.then((next) => {
-				if (cancelled) return;
-				setToken(next);
-				setTokenError(null);
-			})
-			.catch((err) => {
-				if (cancelled) return;
-				setTokenError(err instanceof Error ? err.message : "Token mint failed");
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [mintToken]);
-
-	const subscription = useInngestSubscription({
-		token: subscriptionToken,
-		enabled: subscriptionToken !== null,
-		bufferInterval: 250,
-		refreshToken: async () => {
-			const next = await mintToken();
-			setToken(next);
-			setTokenError(null);
-			return {
-				...next,
-				app: { apiBaseUrl: next.apiBaseUrl },
-			} as any;
-		},
-	});
+		setLastRunSummary(activity.lastRunSummary);
+	}, [activity.lastRunSummary]);
 
 	useEffect(() => {
-		if (subscription.freshData.length === 0) return;
+		if (freshData.length === 0) return;
 
 		const nextItems: ActivityTickerItem[] = [];
 
-		for (const message of subscription.freshData) {
+		for (const message of freshData) {
 			switch (message.topic) {
 				case "import.started":
 					nextItems.push({
@@ -265,7 +287,7 @@ function ActivityTicker({
 		if (nextItems.length === 0) return;
 
 		setItems((prev) => [...prev, ...nextItems].slice(-120));
-	}, [subscription.freshData]);
+	}, [freshData]);
 
 	useEffect(() => {
 		if (items.length === 0) {
@@ -289,30 +311,60 @@ function ActivityTicker({
 
 	const current = items[itemIndex] ?? null;
 	const completedAt = asDate(lastRunSummary?.completedAt);
-	const status = lastRunSummary && completedAt
-		? `Last import ${timeAgo(completedAt, now)} · ${lastRunSummary.itemsChecked} checked · ${lastRunSummary.matchCount} matches`
-		: "Last import pending · 0 checked · 0 matches";
+	const status =
+		lastRunSummary && completedAt
+			? `Last import ${timeAgo(completedAt, now)} · ${lastRunSummary.itemsChecked} checked · ${lastRunSummary.matchCount} matches`
+			: "Last import pending · 0 checked · 0 matches";
 	const idleTickerText = tokenError
 		? "Live activity unavailable"
-		: subscription.state === "active"
+		: subscriptionState === "active"
 			? "No live import activity right now"
 			: "Connecting to live activity...";
+	const liveIndicator: LiveIndicator = tokenError
+		? {
+				label: "offline",
+				bubbleClassName:
+					"border-match-exclude/40 bg-match-exclude/10 text-match-exclude",
+				dotClassName: "bg-match-exclude",
+			}
+		: subscriptionState === "active"
+			? {
+					label: "live",
+					bubbleClassName:
+						"border-match-include/40 bg-match-include/12 text-match-include",
+					dotClassName: "bg-match-include",
+				}
+			: {
+					label: "connecting",
+					bubbleClassName: "border-rule bg-surface text-faint",
+					dotClassName: "bg-faint",
+				};
 
 	return (
 		<Panel className="mt-10 overflow-hidden">
 			<PanelHeader
 				title="Activity"
-				aside={<span className="meta text-faint tabular-nums">{status}</span>}
+				aside={
+					<span className="flex items-center gap-2">
+						<span className="meta text-faint tabular-nums">{status}</span>
+						<span
+							className={cx(
+								"meta inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5",
+								"text-[0.625rem] tracking-[0.12em] uppercase",
+								liveIndicator.bubbleClassName,
+							)}
+						>
+							<span
+								className={cx(
+									"h-1.5 w-1.5 rounded-full",
+									liveIndicator.dotClassName,
+								)}
+							/>
+							{liveIndicator.label}
+						</span>
+					</span>
+				}
 			/>
-			<div className="border-b border-rule-faint px-4 py-2">
-				<span className="meta text-faint">
-					{tokenError
-						? `offline: ${tokenError}`
-						: subscription.state === "active"
-							? "live"
-							: "connecting..."}
-				</span>
-			</div>
 			<div className="px-4 py-3">
 				{current ? (
 					<p
@@ -338,7 +390,178 @@ function ActivityTicker({
 }
 
 function Home() {
-	const { mentions: rows, activity } = Route.useLoaderData();
+	const { mentions: loaderMentions, activity } = Route.useLoaderData();
+	const mintToken = useServerFn(mintActivitySubscriptionToken);
+	const listMentionsByIdsFn = useServerFn(listMentionsByIds);
+	const [rows, setRows] = useState<MentionRow[]>(() => loaderMentions);
+	const [token, setToken] = useState<ActivityToken | null>(null);
+	const [tokenError, setTokenError] = useState<string | null>(null);
+	const [freshMentionIds, setFreshMentionIds] = useState<Set<string>>(
+		() => new Set(),
+	);
+	const rowIdsRef = useRef<Set<string>>(
+		new Set(loaderMentions.map((row) => row.id)),
+	);
+	const mentionCreatedIds = useRef<Set<string>>(new Set());
+	const mentionCreatedFlushTimer = useRef<number | null>(null);
+	const mentionHighlightTimers = useRef<Map<string, number>>(new Map());
+	const subscriptionToken = useMemo<ActivitySubscriptionToken | null>(() => {
+		if (!token) return null;
+		return {
+			...token,
+			app: { apiBaseUrl: token.apiBaseUrl },
+		};
+	}, [token]);
+	const subscription = useInngestSubscription({
+		token: subscriptionToken as unknown as Realtime.Subscribe.Token | null,
+		enabled: subscriptionToken !== null,
+		bufferInterval: 250,
+		refreshToken: async () => {
+			const next = await mintToken();
+			setToken(next);
+			setTokenError(null);
+			const nextToken: ActivitySubscriptionToken = {
+				...next,
+				app: { apiBaseUrl: next.apiBaseUrl },
+			};
+			return nextToken as unknown as Realtime.Subscribe.Token;
+		},
+	});
+
+	useEffect(() => {
+		setRows(loaderMentions);
+		rowIdsRef.current = new Set(loaderMentions.map((row) => row.id));
+	}, [loaderMentions]);
+
+	useEffect(() => {
+		rowIdsRef.current = new Set(rows.map((row) => row.id));
+	}, [rows]);
+
+	const markFreshMentions = useCallback((ids: string[]) => {
+		if (ids.length === 0) return;
+
+		setFreshMentionIds((current) => {
+			const next = new Set(current);
+			for (const id of ids) next.add(id);
+			return next;
+		});
+
+		for (const id of ids) {
+			const previousTimer = mentionHighlightTimers.current.get(id);
+			if (previousTimer !== undefined) {
+				window.clearTimeout(previousTimer);
+			}
+
+			const timer = window.setTimeout(() => {
+				mentionHighlightTimers.current.delete(id);
+				setFreshMentionIds((current) => {
+					if (!current.has(id)) return current;
+					const next = new Set(current);
+					next.delete(id);
+					return next;
+				});
+			}, 1800);
+
+			mentionHighlightTimers.current.set(id, timer);
+		}
+	}, []);
+
+	useEffect(() => {
+		let cancelled = false;
+		mintToken()
+			.then((next) => {
+				if (cancelled) return;
+				setToken(next);
+				setTokenError(null);
+			})
+			.catch((err) => {
+				if (cancelled) return;
+				setTokenError(err instanceof Error ? err.message : "Token mint failed");
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [mintToken]);
+
+	const flushMentionCreatedQueue = useCallback(async () => {
+		mentionCreatedFlushTimer.current = null;
+		const ids = [...mentionCreatedIds.current];
+		mentionCreatedIds.current.clear();
+		if (ids.length === 0) return;
+
+		try {
+			const freshRows = await listMentionsByIdsFn({ data: { ids } });
+			const insertedIds = freshRows
+				.map((row) => row.id)
+				.filter((id) => !rowIdsRef.current.has(id));
+			if (insertedIds.length > 0) {
+				markFreshMentions(insertedIds);
+			}
+			setRows((current) => upsertMentionRows(current, freshRows));
+		} catch {
+			for (const id of ids) {
+				mentionCreatedIds.current.add(id);
+			}
+		}
+	}, [listMentionsByIdsFn, markFreshMentions]);
+
+	useEffect(() => {
+		if (subscription.freshData.length === 0) return;
+
+		const categoryUpdates = new Map<string, string>();
+		let hasCreatedMentions = false;
+
+		for (const message of subscription.freshData) {
+			if (message.topic === "mention.created") {
+				const mentionId = message.data?.mentionId;
+				if (typeof mentionId === "string" && mentionId.length > 0) {
+					mentionCreatedIds.current.add(mentionId);
+					hasCreatedMentions = true;
+				}
+				continue;
+			}
+
+			if (message.topic === "mention.categorized") {
+				const mentionId = message.data?.mentionId;
+				const category = message.data?.category;
+				if (
+					typeof mentionId === "string" &&
+					mentionId.length > 0 &&
+					typeof category === "string" &&
+					category.length > 0
+				) {
+					categoryUpdates.set(mentionId, category);
+				}
+			}
+		}
+
+		if (categoryUpdates.size > 0) {
+			setRows((current) =>
+				applyMentionCategoryUpdates(current, categoryUpdates),
+			);
+		}
+
+		if (hasCreatedMentions && mentionCreatedFlushTimer.current === null) {
+			mentionCreatedFlushTimer.current = window.setTimeout(() => {
+				void flushMentionCreatedQueue();
+			}, 250);
+		}
+	}, [subscription.freshData, flushMentionCreatedQueue]);
+
+	useEffect(() => {
+		return () => {
+			if (mentionCreatedFlushTimer.current !== null) {
+				window.clearTimeout(mentionCreatedFlushTimer.current);
+				mentionCreatedFlushTimer.current = null;
+			}
+
+			for (const timer of mentionHighlightTimers.current.values()) {
+				window.clearTimeout(timer);
+			}
+			mentionHighlightTimers.current.clear();
+		};
+	}, []);
+
 	const { category, setCategory, tag, setTag, counts, filtered } =
 		useMentionFilters(rows);
 	const hasFilter = category !== null || tag !== null;
@@ -360,7 +583,12 @@ function Home() {
 					Marlon watches for the words that matter to your Brando.
 				</p>
 
-				<ActivityTicker activity={activity} />
+				<ActivityTicker
+					activity={activity}
+					freshData={subscription.freshData}
+					subscriptionState={subscription.state}
+					tokenError={tokenError}
+				/>
 
 				<Panel className="mt-16 overflow-hidden">
 					<PanelHeader
@@ -433,7 +661,13 @@ function Home() {
 					) : (
 						<div>
 							{filtered.map((row) => (
-								<Mention key={row.id} data={toMentionData(row)} />
+								<Mention
+									key={row.id}
+									data={toMentionData(row)}
+									className={
+										freshMentionIds.has(row.id) ? "mention-arrive" : undefined
+									}
+								/>
 							))}
 						</div>
 					)}

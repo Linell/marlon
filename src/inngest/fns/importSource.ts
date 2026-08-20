@@ -223,6 +223,12 @@ export const importSource = inngest.createFunction(
 
 			for (const ref of result.refs) {
 				await step.realtime.publish(
+					`activity-mention-created-${ref.mentionId}`,
+					activityRealtime["mention.created"],
+					{ mentionId: ref.mentionId },
+				);
+
+				await step.realtime.publish(
 					`activity-match-${ref.mentionId}`,
 					activityRealtime["match.found"],
 					{ keyword: ref.keyword, title: ref.title },
@@ -233,9 +239,12 @@ export const importSource = inngest.createFunction(
 				await step.sendEvent(
 					`emit-${chunk}`,
 					result.refs.map(({ mentionId, itemId, keywordId }) =>
-						mentionCreated.create({ mentionId, itemId, keywordId }, {
-							id: `mention.created/${mentionId}`,
-						}),
+						mentionCreated.create(
+							{ mentionId, itemId, keywordId },
+							{
+								id: `mention.created/${mentionId}`,
+							},
+						),
 					),
 				);
 			}
