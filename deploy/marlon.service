@@ -1,0 +1,29 @@
+# Install to /etc/systemd/system/marlon.service, then
+# `systemctl daemon-reload && systemctl enable marlon`.
+[Unit]
+Description=marlon — HN/lobste.rs mention tracker
+After=network.target
+
+[Service]
+User=marlon
+Group=marlon
+WorkingDirectory=/opt/marlon
+EnvironmentFile=/etc/marlon/marlon.env
+ExecStart=/usr/bin/node /opt/marlon/.output/server/index.mjs
+Restart=on-failure
+RestartSec=2
+
+# SQLite lives in /var/lib/marlon.
+StateDirectory=marlon
+StateDirectoryMode=0700
+UMask=0077
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectProc=invisible
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+# Caddy vhost fragment — append to /etc/caddy/Caddyfile, then:
+#   caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
+# Point DNS at the server first: Caddy issues certs when the config loads,
+# so an unresolvable hostname fails HTTP-01 immediately.
+marlon.example.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:8081
+	header Strict-Transport-Security "max-age=31536000"
+}

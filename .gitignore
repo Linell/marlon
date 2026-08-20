@@ -13,3 +13,4 @@ __unconfig*
 todos.json
 .data
 CURRENT_TASK.md
+deploy/deploy.env
