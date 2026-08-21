@@ -65,6 +65,7 @@
 	--color-category-complaint: var(--category-complaint);
 	--color-category-request: var(--category-request);
 	--color-category-discussion: var(--category-discussion);
+	--color-category-uncategorized: var(--category-uncategorized);
 
 	--color-match-include: var(--match-include);
 	--color-match-exclude: var(--match-exclude);

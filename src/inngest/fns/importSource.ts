@@ -13,14 +13,24 @@ import { matchKeywords } from "#/lib/match";
 import { getAdapter } from "#/sources";
 import type { SourceItem } from "#/sources/types";
 import { inngest } from "../client";
-import { mentionCreated, sourceImportRequested } from "../events";
+import {
+	mentionCreated,
+	mentionCreatedLlm,
+	sourceImportRequested,
+} from "../events";
 import { activityRealtime } from "../realtime";
 
 /** Chunks (adapter pages) walked per run; the next cron tick continues. */
 const MAX_CHUNKS_PER_RUN = 20;
 
 type MentionRef = { mentionId: string; itemId: string; keywordId: string };
-type MatchFound = MentionRef & { keyword: string; title: string };
+type MatchFound = MentionRef & {
+	keyword: string;
+	title: string;
+	/** Snapshot of the keyword's flag at emit time; picks the enrichment
+	    event, so in-flight mentions keep their route across toggles. */
+	llmEnabled: boolean;
+};
 
 function tickerTitle(item: SourceItem): string {
 	const raw = item.title ?? item.threadTitle ?? item.bodyText ?? item.permalink;
@@ -68,6 +78,7 @@ async function storeMatches(
 					keywordId: k.id,
 					keyword: k.term,
 					title,
+					llmEnabled: k.llmEnabled,
 				}))
 			: [];
 	});
@@ -81,7 +92,7 @@ async function storeMatches(
 	const metaByPair = new Map(
 		pairs.map((pair) => [
 			`${pair.itemId}:${pair.keywordId}`,
-			{ keyword: pair.keyword, title: pair.title },
+			{ keyword: pair.keyword, title: pair.title, llmEnabled: pair.llmEnabled },
 		]),
 	);
 	const rows = await db
@@ -109,6 +120,7 @@ async function storeMatches(
 			keywordId: row.keywordId,
 			keyword: meta.keyword,
 			title: meta.title,
+			llmEnabled: meta.llmEnabled,
 		});
 	}
 
@@ -238,13 +250,16 @@ export const importSource = inngest.createFunction(
 			if (result.refs.length > 0) {
 				await step.sendEvent(
 					`emit-${chunk}`,
-					result.refs.map(({ mentionId, itemId, keywordId }) =>
-						mentionCreated.create(
-							{ mentionId, itemId, keywordId },
-							{
-								id: `mention.created/${mentionId}`,
-							},
-						),
+					result.refs.map(({ mentionId, itemId, keywordId, llmEnabled }) =>
+						llmEnabled
+							? mentionCreatedLlm.create(
+									{ mentionId, itemId, keywordId },
+									{ id: `mention.created.llm/${mentionId}` },
+								)
+							: mentionCreated.create(
+									{ mentionId, itemId, keywordId },
+									{ id: `mention.created/${mentionId}` },
+								),
 					),
 				);
 			}

@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm";
 import { db } from "#/db/client";
 import { items, keywords, mentions } from "#/db/schema";
 
@@ -29,12 +29,21 @@ const mentionSelect = {
 	tag: keywords.tag,
 };
 
-function mentionsQuery() {
+/* NULL disposition = real match; "not_a_match" = LLM-rejected. Rejected rows
+   stay stored for scoring but must never reach feeds or charts — they are the
+   false positives this filter exists to remove. */
+const notRejected = isNull(mentions.disposition);
+
+/* Every feed reads through here, so the rejection filter can't be forgotten
+   by a new caller. The timeseries aggregates below don't use this builder and
+   apply `notRejected` themselves. */
+function mentionsQuery(where?: SQL) {
 	return db
 		.select(mentionSelect)
 		.from(mentions)
 		.innerJoin(items, eq(mentions.itemId, items.id))
-		.innerJoin(keywords, eq(mentions.keywordId, keywords.id));
+		.innerJoin(keywords, eq(mentions.keywordId, keywords.id))
+		.where(where ? and(notRejected, where) : notRejected);
 }
 
 /** Normalize an id list: trim, drop empties, dedupe, cap. */
@@ -81,9 +90,9 @@ export const listMentionsByIds = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		if (data.ids.length === 0) return [];
 
-		return mentionsQuery()
-			.where(inArray(mentions.id, data.ids))
-			.orderBy(desc(mentions.createdAt));
+		return mentionsQuery(inArray(mentions.id, data.ids)).orderBy(
+			desc(mentions.createdAt),
+		);
 	});
 
 export type MentionRow = Awaited<ReturnType<typeof listMentions>>[number];
@@ -112,9 +121,9 @@ export const listMentionsForKeywords = createServerFn({ method: "POST" })
 	.handler(async ({ data }) => {
 		if (data.keywordIds.length === 0) return [];
 
-		const rows = await mentionsQuery()
-			.where(inArray(mentions.keywordId, data.keywordIds))
-			.orderBy(desc(mentions.createdAt));
+		const rows = await mentionsQuery(
+			inArray(mentions.keywordId, data.keywordIds),
+		).orderBy(desc(mentions.createdAt));
 
 		return dedupeByItem(rows).slice(0, 100);
 	});
@@ -170,6 +179,7 @@ export const getMentionTimeseries = createServerFn({ method: "POST" })
 		const windowStart = Math.floor(Date.parse(`${dates[0]}T00:00:00Z`) / 1000);
 		const inWindow = and(
 			inArray(mentions.keywordId, ids),
+			notRejected,
 			sql`coalesce(${items.postedAt}, ${mentions.createdAt}) >= ${windowStart}`,
 		);
 

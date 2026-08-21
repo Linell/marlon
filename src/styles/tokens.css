@@ -104,6 +104,7 @@
 	--category-complaint: var(--rust-400);
 	--category-request: var(--iris-400);
 	--category-discussion: var(--ink-300);
+	--category-uncategorized: var(--ink-400);
 
 	/* Match logic. Include vs. exclude must be legible at a glance. */
 	--match-include: var(--moss-400);

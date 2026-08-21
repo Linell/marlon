@@ -17,6 +17,7 @@ type KeywordInput = {
 	tag: Tag;
 	include: string[];
 	exclude: string[];
+	llmEnabled: boolean;
 };
 
 /** Normalize a term list: trim, drop empties, dedupe case-insensitively. */
@@ -55,8 +56,16 @@ function validateKeywordInput(data: unknown): KeywordInput {
 	);
 	const include = cleanTerms((data as Record<string, unknown>).include);
 	const exclude = cleanTerms((data as Record<string, unknown>).exclude);
+	const llmEnabled = (data as Record<string, unknown>).llmEnabled === true;
 
-	return { term: canonical, aliases, tag: tag as Tag, include, exclude };
+	return {
+		term: canonical,
+		aliases,
+		tag: tag as Tag,
+		include,
+		exclude,
+		llmEnabled,
+	};
 }
 
 export const listKeywords = createServerFn().handler(async () => {

@@ -13,6 +13,7 @@ import { Panel, PanelHeader } from "#/components/ui/Panel";
 import {
 	CATEGORIES,
 	type Category,
+	FILTERABLE_CATEGORIES,
 	type Registered,
 	TAGS,
 	type Tag,
@@ -556,17 +557,17 @@ function Home() {
 					/>
 					{rows.length > 0 && (
 						<div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-rule-faint px-4 py-2.5">
-							{(Object.keys(CATEGORIES) as Category[])
-								.filter((c) => counts.byCategory.has(c))
-								.map((c) => (
-									<FilterChip
-										key={c}
-										entry={CATEGORIES[c]}
-										count={counts.byCategory.get(c) ?? 0}
-										active={category === c}
-										onToggle={() => setCategory(category === c ? null : c)}
-									/>
-								))}
+							{FILTERABLE_CATEGORIES.filter((c) =>
+								counts.byCategory.has(c),
+							).map((c) => (
+								<FilterChip
+									key={c}
+									entry={CATEGORIES[c]}
+									count={counts.byCategory.get(c) ?? 0}
+									active={category === c}
+									onToggle={() => setCategory(category === c ? null : c)}
+								/>
+							))}
 							<span className="h-4 w-px bg-rule-faint" aria-hidden />
 							{(Object.keys(TAGS) as Tag[])
 								.filter((t) => counts.byTag.has(t))

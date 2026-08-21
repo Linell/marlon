@@ -46,6 +46,11 @@ export const keywords = sqliteTable("keywords", {
 		.$type<string[]>()
 		.notNull()
 		.default([]),
+	/** Route matches through the LLM categorizer instead of the rules path.
+	    Snapshotted at emit time — in-flight events keep their route. */
+	llmEnabled: integer("llm_enabled", { mode: "boolean" })
+		.notNull()
+		.default(false),
 	active: integer("active", { mode: "boolean" }).notNull().default(true),
 	createdAt: integer("created_at", { mode: "timestamp" })
 		.notNull()
@@ -115,9 +120,17 @@ export const mentions = sqliteTable(
 		keywordId: text("keyword_id")
 			.notNull()
 			.references(() => keywords.id, { onDelete: "cascade" }),
-		/** A `Category` key from the registry; null until enrichment runs. */
+		/** A `Category` key from the registry; null until enrichment runs.
+		    Every terminal state writes non-null (`uncategorized` when the LLM
+		    can't decide) — the NULL check is the enrichment idempotency guard. */
 		category: text("category"),
 		categorizedBy: text("categorized_by"),
+		/** NULL = real match; "not_a_match" = the LLM rejected the keyword hit.
+		    Rejected rows stay stored but are filtered from all feeds and charts. */
+		disposition: text("disposition"),
+		/** The llm-categorize run that wrote this row, for external scoring
+		    (human corrections push `human_agreement` against this run). */
+		enrichRunId: text("enrich_run_id"),
 		createdAt: integer("created_at", { mode: "timestamp" })
 			.notNull()
 			.$defaultFn(now),

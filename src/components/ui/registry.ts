@@ -134,6 +134,14 @@ export const CATEGORIES = {
 		chip: "text-category-discussion border-category-discussion/35 bg-category-discussion/10",
 		fg: "text-category-discussion",
 	},
+	/* Terminal "couldn't decide" state from the LLM path — a muted chip and
+	   the fallback for unknown category values, like `unknown` for sources. */
+	uncategorized: {
+		label: "Uncategorized",
+		code: "UNC",
+		chip: "text-category-uncategorized border-category-uncategorized/35 bg-category-uncategorized/10",
+		fg: "text-category-uncategorized",
+	},
 } as const satisfies Record<string, Registered>;
 
 export type Category = keyof typeof CATEGORIES;
@@ -143,3 +151,13 @@ export type Category = keyof typeof CATEGORIES;
 export function source(key: string): Registered {
 	return SOURCES[key as Source] ?? SOURCES.unknown;
 }
+
+export function category(key: string): Registered {
+	return CATEGORIES[key as Category] ?? CATEGORIES.uncategorized;
+}
+
+/** Filter-bar vocabulary: every real category. `uncategorized` is a shrug,
+ *  not a lens — its mentions still render, with a muted chip. */
+export const FILTERABLE_CATEGORIES = (
+	Object.keys(CATEGORIES) as Category[]
+).filter((key) => key !== "uncategorized");

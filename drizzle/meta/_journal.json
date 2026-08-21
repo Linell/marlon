@@ -43,6 +43,13 @@
       "when": 1787261480690,
       "tag": "0005_silent_dagger",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1787269522567,
+      "tag": "0006_mute_toro",
+      "breakpoints": true
     }
   ]
 }

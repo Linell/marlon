@@ -1,15 +1,15 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "#/db/client";
-import { items, mentions } from "#/db/schema";
+import { items } from "#/db/schema";
 import { categorizer } from "#/lib/categorize";
+import { applyCategorization, publishCategorized } from "../categorization";
 import { inngest } from "../client";
 import { mentionCreated } from "../events";
-import { activityRealtime } from "../realtime";
 
 /* --- enrich-mention ----------------------------------------------------------
-   Categorization behind the swappable `categorizer`. The UPDATE only fires
-   while category IS NULL, so duplicate events are harmless. Limit 2 because
-   libsql has a single writer. */
+   Categorization behind the swappable `categorizer`. The shared write only
+   fires while category IS NULL, so duplicate events are harmless. Limit 2
+   because libsql has a single writer. */
 export const enrichMention = inngest.createFunction(
 	{
 		id: "enrich-mention",
@@ -28,21 +28,16 @@ export const enrichMention = inngest.createFunction(
 			}
 
 			const category = categorizer.categorize(item);
-			const updated = await db
-				.update(mentions)
-				.set({ category, categorizedBy: categorizer.id })
-				.where(and(eq(mentions.id, mentionId), isNull(mentions.category)))
-				.returning({ id: mentions.id });
+			const applied = await applyCategorization(mentionId, {
+				category,
+				categorizedBy: categorizer.id,
+			});
 
-			return { category, applied: updated.length > 0 };
+			return { category, applied };
 		});
 
 		if (result.applied && result.category !== null) {
-			await step.realtime.publish(
-				`activity-mention-categorized-${mentionId}`,
-				activityRealtime["mention.categorized"],
-				{ mentionId, category: result.category },
-			);
+			await publishCategorized(step, mentionId, result.category);
 		}
 
 		return result;

@@ -1,8 +1,7 @@
 import { cx } from "./cx";
 import {
-	CATEGORIES,
-	type Category,
 	type Registered,
+	category as resolveCategory,
 	source as resolveSource,
 	TAGS,
 	type Tag,
@@ -70,6 +69,6 @@ export const TagChip = ({
 export const CategoryChip = ({
 	category,
 	...rest
-}: { category: Category } & Omit<ChipProps, "entry">) => (
-	<Chip entry={CATEGORIES[category]} {...rest} />
+}: { category: string } & Omit<ChipProps, "entry">) => (
+	<Chip entry={resolveCategory(category)} {...rest} />
 );

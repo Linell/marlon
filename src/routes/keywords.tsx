@@ -108,6 +108,7 @@ function KeywordRow({ row, spark }: { row: Keyword; spark: number[] }) {
 						tag: row.tag as Tag,
 						include: row.include.join(", "),
 						exclude: row.exclude.join(", "),
+						llmEnabled: row.llmEnabled,
 					}}
 					submitLabel="Save changes"
 					onCancel={() => setEditing(false)}
@@ -131,6 +132,9 @@ function KeywordRow({ row, spark }: { row: Keyword; spark: number[] }) {
 				include={row.include}
 				exclude={row.exclude}
 			/>
+			{row.llmEnabled && (
+				<span className="meta shrink-0 text-signal-dim">LLM</span>
+			)}
 			<span className="hidden shrink-0 pr-1 sm:block" aria-hidden>
 				<Sparkline counts={spark} width={96} height={24} />
 			</span>
@@ -178,6 +182,7 @@ type FormValues = {
 	tag: Tag;
 	include: string;
 	exclude: string;
+	llmEnabled: boolean;
 };
 
 const EMPTY_FORM: FormValues = {
@@ -186,6 +191,7 @@ const EMPTY_FORM: FormValues = {
 	tag: "own",
 	include: "",
 	exclude: "",
+	llmEnabled: false,
 };
 
 /** "planet, retrograde" → ["planet", "retrograde"] */
@@ -210,6 +216,7 @@ function KeywordForm({
 		tag: Tag;
 		include: string[];
 		exclude: string[];
+		llmEnabled: boolean;
 	}) => Promise<void>;
 	onCancel?: () => void;
 }) {
@@ -229,6 +236,7 @@ function KeywordForm({
 				tag: form.tag,
 				include: splitTerms(form.include),
 				exclude: splitTerms(form.exclude),
+				llmEnabled: form.llmEnabled,
 			});
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Something went wrong");
@@ -288,6 +296,20 @@ function KeywordForm({
 					onChange={(e) => setForm({ ...form, exclude: e.target.value })}
 					placeholder="car, dealership"
 				/>
+			</Field>
+
+			<Field label="LLM Check" hint="confirm + categorize matches with an LLM">
+				<span className="flex h-9 items-center gap-2">
+					<input
+						type="checkbox"
+						className="size-3.5 accent-signal"
+						checked={form.llmEnabled}
+						onChange={(e) => setForm({ ...form, llmEnabled: e.target.checked })}
+					/>
+					<span className="meta text-faint">
+						{form.llmEnabled ? "enabled" : "disabled"}
+					</span>
+				</span>
 			</Field>
 
 			<div className="flex items-center gap-3 sm:col-span-2">
