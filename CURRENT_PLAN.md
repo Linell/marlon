@@ -1,5 +1,48 @@
 # llm categorization for mentions
 
+## Status: implemented (commit 991828a, 2026-08-21)
+
+Everything below is built, tested (`pnpm test`, 27 tests), and migrated
+(`drizzle/0006`), except Phase 2 (human corrections), which remains spec-only.
+
+As-built notes where reality diverged from or refined the plan:
+
+- **Shared write/publish helpers** (`src/inngest/categorization.ts`):
+  `applyCategorization()` is the single home of the `category IS NULL`
+  idempotency guard; `publishCategorized()` owns the activity-feed payload.
+  All three write sites (enrich-mention, llm-categorize, its no-key fallback)
+  funnel through them — Phase 2's correction write should too, except that
+  human corrections overwrite a *non-null* category, so they need their own
+  guard, not `applyCategorization`.
+- **Read-side filter is structural**: `mentionsQuery(where?)` in
+  `src/functions/mentions.ts` ANDs `notRejected` internally; only the
+  timeseries aggregates apply it explicitly. New feed readers get it free.
+- **LLM vocabulary = filter-bar vocabulary**: `ASSIGNABLE` in `src/lib/llm.ts`
+  reuses `FILTERABLE_CATEGORIES` from the registry (every category except
+  `uncategorized`).
+- **Event id scheme**: `mention.created.llm/${mentionId}`.
+- **`responseOutputText()`** extracts text structurally from the Responses API
+  result because `step.ai.wrap` outputs are JSON round-tripped on replay and
+  the OpenAI SDK's `output_text` convenience may not survive it.
+- **Write + `step.score` run in one `Promise.all`** (independent; saves a step
+  round trip per mention).
+- **Throttle is a guess**: 30/min in `llmCategorize.ts` — resize to the actual
+  OpenAI tier. Model `gpt-5-nano`, threshold 0.7, in `src/lib/llm.ts`.
+- **Testing**: vitest was added to the repo by this work. Server functions
+  aren't directly callable outside the Start build; the DB filtering suite
+  mocks only `createServerFn`'s wrapper (rationale documented in
+  `src/functions/mentions.filtering.test.ts`).
+- **Otel preload** (`--import @inngest/otel/node`) is wired into the `dev` and
+  `preview` scripts only. The production start command on the droplet must add
+  the same `NODE_OPTIONS` or cost metadata silently won't appear.
+
+Remaining release steps: deploy (no-op — flag defaults false), set
+`OPENAI_API_KEY`, toggle `llmEnabled` on one ambiguous keyword, watch
+`rules_agreement`/`judge_agreement` and cost in the Inngest dashboard, then
+opt in the rest. Then build Phase 2 (spec at the bottom of this doc).
+
+---
+
 ## Problem
 
 The regex categorizer in `src/lib/categorize.ts` is inaccurate (a question mark does not make a question), and ambiguous keywords like "Mercury" produce false-positive mentions that inflate the volume charts. Running every item through an LLM costs too much.
