@@ -20,6 +20,7 @@ const mentionSelect = {
 	title: items.title,
 	bodyText: items.bodyText,
 	author: items.author,
+	url: items.url,
 	permalink: items.permalink,
 	threadTitle: items.threadTitle,
 	threadPermalink: items.threadPermalink,

@@ -52,6 +52,7 @@ export function toMentionData(row: MentionRow): MentionData {
 		keywordTag: row.tag as Tag,
 		category: row.category as Category | null,
 		at: timeAgo(row.postedAt ?? row.createdAt),
+		url: row.url ?? undefined,
 		permalink: row.permalink,
 		thread:
 			row.threadTitle && row.threadPermalink

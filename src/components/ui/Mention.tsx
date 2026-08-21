@@ -39,6 +39,8 @@ export type MentionData = {
 	category: Category | null;
 	sentiment?: "positive" | "negative" | "neutral";
 	at: string;
+	/** Outbound article link — stories that point at an external page. */
+	url?: string;
 	/** Canonical link back to the item on its platform. */
 	permalink?: string;
 	/** Thread-root context — the story a comment lives under. */
@@ -55,6 +57,15 @@ const SENTIMENT_EDGE = {
 	negative: "border-l-sentiment-negative",
 	neutral: "border-l-sentiment-neutral",
 } as const;
+
+/** Bare hostname for byline link labels — the full URL is noise in mono meta. */
+function hostOf(url: string): string {
+	try {
+		return new URL(url).hostname.replace(/^www\./, "");
+	} catch {
+		return url;
+	}
+}
 
 const COLLAPSED_PREVIEW_MAX_CHARS = 300;
 const COLLAPSED_PREVIEW_MATCH_LEAD = 40;
@@ -187,6 +198,25 @@ export function Mention({
 							) : (
 								<span className="meta text-faint">· reply</span>
 							)
+						) : data.url ? (
+							<a
+								href={data.url}
+								target="_blank"
+								rel="noreferrer"
+								className="meta min-w-0 truncate text-muted hover:text-loud hover:underline"
+								title={data.url}
+							>
+								· {hostOf(data.url)} ↗
+							</a>
+						) : data.permalink ? (
+							<a
+								href={data.permalink}
+								target="_blank"
+								rel="noreferrer"
+								className="meta text-muted hover:text-loud hover:underline"
+							>
+								· root story ↗
+							</a>
 						) : (
 							<span className="meta text-faint">· root story</span>
 						)}
