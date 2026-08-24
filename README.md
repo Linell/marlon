@@ -1,210 +1,72 @@
-Welcome to your new TanStack Start app!
+# marlon
 
-# Getting Started
+Self-hosted keyword-mention tracker: see what strangers are saying about you.
 
-To run this application:
+## What it does
 
-```bash
-npm install
-npm run dev
+Marlon watches sources (currently Hacker News and Lobsters) for tracked
+keywords. An Inngest cron fans out an import per source every 15 minutes;
+matched items become mentions, which are enriched and categorized (OpenAI when
+`OPENAI_API_KEY` is set, rule-based fallback otherwise). A TanStack Start UI
+serves the mention feed, saved views, and volume charts.
+
+## Prerequisites
+
+- Node 22
+- pnpm
+- Inngest Dev Server for background jobs locally (`pnpm dlx inngest-cli@latest dev`)
+- Optional: an OpenAI API key for LLM categorization
+
+## Setup
+
+```sh
+git clone <repo> && cd marlon
+pnpm install
+pnpm db:migrate   # creates the local SQLite db (file:.data/marlon.db)
 ```
 
-# Building For Production
+Local env lives in `.env.local`. Set `INNGEST_DEV=1` so Inngest talks to the
+local Dev Server instead of Inngest Cloud; optionally add `OPENAI_API_KEY`.
+`DATABASE_URL` defaults to `file:.data/marlon.db` (libsql — point it at
+`libsql://<db>.turso.io` + `DATABASE_AUTH_TOKEN` for hosted). The full env
+contract is documented in `deploy/marlon.env.example`.
 
-To build this application for production:
+## Run
 
-```bash
-npm run build
+```sh
+pnpm dev                          # app on http://localhost:3000
+pnpm dlx inngest-cli@latest dev   # dev server on http://localhost:8288
 ```
 
-## Styling
+Inngest functions are served at `/api/inngest`; the Dev Server UI shows runs,
+crons, and lets you trigger imports manually.
 
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
+Other scripts:
 
-### Removing Tailwind CSS
-
-If you prefer not to use Tailwind CSS:
-
-1. Remove the demo pages in `src/routes/demo/`
-2. Replace the Tailwind import in `src/styles.css` with your own styles
-3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
-4. Remove `@tailwindcss/vite` and `tailwindcss` from `package.json`
-
-## Linting & Formatting
-
-This project uses [Biome](https://biomejs.dev/) for linting and formatting. The following scripts are available:
-
-
-```bash
-npm run lint
-npm run format
-npm run check
+```sh
+pnpm test          # vitest
+pnpm check         # biome lint + format
+pnpm db:generate   # new migration after editing src/db/schema.ts
+pnpm db:studio
 ```
 
+## Layout
+
+- `src/routes/` — TanStack Router file routes (`/`, `/keywords`, `/views`, `/api/inngest`)
+- `src/inngest/` — client, events, and functions (schedule/import/enrich/categorize)
+- `src/sources/` — per-source adapters; add a source here
+- `src/db/` — drizzle schema and libsql client; migrations in `drizzle/`
+- `DESIGN.md` — design system; read it before touching styles or components
 
 ## Deploy
 
-The build output is a self-contained Node server, so marlon runs on any
-Node-compatible host:
+The build is a self-contained Node server:
 
-```bash
-npm run build
+```sh
+pnpm build
 node .output/server/index.mjs
 ```
 
-[`deploy/`](deploy/README.md) has a worked example — systemd + Caddy on a
-single Linux box, deployed with `./deploy/deploy.sh`. For host-specific Nitro
-presets (Vercel, Netlify, Cloudflare, AWS Lambda), see
+`deploy/` has a worked single-box example (systemd + Caddy, `./deploy/deploy.sh`);
+see [deploy/README.md](deploy/README.md). Other Nitro presets:
 https://v3.nitro.build/deploy.
-
-
-
-## Routing
-
-This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
-
-### Adding A Route
-
-To add a new route to your application just add a new file in the `./src/routes` directory.
-
-TanStack will automatically generate the content of the route file for you.
-
-Now that you have two routes you can use a `Link` component to navigate between them.
-
-### Adding Links
-
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
-
-```tsx
-import { Link } from "@tanstack/react-router";
-```
-
-Then anywhere in your JSX you can use it like so:
-
-```tsx
-<Link to="/about">About</Link>
-```
-
-This will create a link that will navigate to the `/about` route.
-
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
-
-### Using A Layout
-
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you render `{children}` in the `shellComponent`.
-
-Here is an example layout that includes a header:
-
-```tsx
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-
-export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'My App' },
-    ],
-  }),
-  shellComponent: ({ children }) => (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <header>
-          <nav>
-            <Link to="/">Home</Link>
-            <Link to="/about">About</Link>
-          </nav>
-        </header>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  ),
-})
-```
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
-## Server Functions
-
-TanStack Start provides server functions that allow you to write server-side code that seamlessly integrates with your client components.
-
-```tsx
-import { createServerFn } from '@tanstack/react-start'
-
-const getServerTime = createServerFn({
-  method: 'GET',
-}).handler(async () => {
-  return new Date().toISOString()
-})
-
-// Use in a component
-function MyComponent() {
-  const [time, setTime] = useState('')
-  
-  useEffect(() => {
-    getServerTime().then(setTime)
-  }, [])
-  
-  return <div>Server time: {time}</div>
-}
-```
-
-## API Routes
-
-You can create API routes by using the `server` property in your route definitions:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-import { json } from '@tanstack/react-start'
-
-export const Route = createFileRoute('/api/hello')({
-  server: {
-    handlers: {
-      GET: () => json({ message: 'Hello, World!' }),
-    },
-  },
-})
-```
-
-## Data Fetching
-
-There are multiple ways to fetch data in your application. You can use TanStack Query to fetch data from a server. But you can also use the `loader` functionality built into TanStack Router to load the data for a route before it's rendered.
-
-For example:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-
-export const Route = createFileRoute('/people')({
-  loader: async () => {
-    const response = await fetch('https://swapi.dev/api/people')
-    return response.json()
-  },
-  component: PeopleComponent,
-})
-
-function PeopleComponent() {
-  const data = Route.useLoaderData()
-  return (
-    <ul>
-      {data.results.map((person) => (
-        <li key={person.name}>{person.name}</li>
-      ))}
-    </ul>
-  )
-}
-```
-
-Loaders simplify your data fetching logic dramatically. Check out more information in the [Loader documentation](https://tanstack.com/router/latest/docs/framework/react/guide/data-loading#loader-parameters).
-
-
-
-# Learn More
-
-You can learn more about all of the offerings from TanStack in the [TanStack documentation](https://tanstack.com).
-
-For TanStack Start specific documentation, visit [TanStack Start](https://tanstack.com/start).

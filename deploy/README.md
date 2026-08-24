@@ -12,15 +12,16 @@ Internet ──▶ Caddy (:443) ──▶ node .output/server/index.mjs (:8081, 
 ## Server setup (once)
 
 1. **Node 22:** `curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs`
-2. **Service user:** `adduser --system --group --no-create-home --home /var/lib/marlon marlon`
-3. **Env:** `install -d /etc/marlon && cp marlon.env.example /etc/marlon/marlon.env`,
+2. **pnpm:** `corepack enable pnpm` (picks up the version pinned in `package.json`)
+3. **Service user:** `adduser --system --group --no-create-home --home /var/lib/marlon marlon`
+4. **Env:** `install -d /etc/marlon && cp marlon.env.example /etc/marlon/marlon.env`,
    then `chown root:marlon /etc/marlon/marlon.env && chmod 0640 /etc/marlon/marlon.env`
    and fill in the Inngest keys.
-4. **Service:** copy `marlon.service` to `/etc/systemd/system/`, then
+5. **Service:** copy `marlon.service` to `/etc/systemd/system/`, then
    `systemctl daemon-reload && systemctl enable marlon`.
-5. **DNS:** point an A record at the server (no proxying, so Caddy can issue a cert).
-6. **Caddy:** append `Caddyfile` to `/etc/caddy/Caddyfile`, `caddy validate` and reload.
-7. **Inngest:** sync the app at `https://<your-host>/api/inngest` in the Inngest dashboard.
+6. **DNS:** point an A record at the server (no proxying, so Caddy can issue a cert).
+7. **Caddy:** append `Caddyfile` to `/etc/caddy/Caddyfile`, `caddy validate` and reload.
+8. **Inngest:** sync the app at `https://<your-host>/api/inngest` in the Inngest dashboard.
 
 ## Deploying
 

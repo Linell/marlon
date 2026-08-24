@@ -2,6 +2,7 @@
   "name": "marlon",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.15.1",
   "imports": {
     "#/*": "./src/*"
   },

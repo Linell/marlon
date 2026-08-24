@@ -61,7 +61,7 @@ That is the entire mechanism behind the day/night toggle, and it is how a future
 plain `@theme`, runtime theming silently dies.** Verify with:
 
 ```bash
-npm run build && grep -o "\.text-loud{[^}]*}" .output/public/assets/*.css
+pnpm build && grep -o "\.text-loud{[^}]*}" .output/public/assets/*.css
 # want: .text-loud{color:var(--text-loud)}
 ```
 

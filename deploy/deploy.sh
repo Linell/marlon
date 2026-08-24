@@ -18,9 +18,9 @@ echo ">> building, migrating, restarting"
 ssh -i "$SSH_KEY" "$HOST" 'bash -s' <<'REMOTE'
 set -euo pipefail
 cd /opt/marlon
-# install, not ci: "latest" dist-tag specifiers drift past the lockfile.
-npm install --no-audit --no-fund
-npm run build
+# not frozen: "latest" dist-tag specifiers drift past the lockfile.
+pnpm install --no-frozen-lockfile
+pnpm build
 set -a; . /etc/marlon/marlon.env; set +a
 # drizzle-kit's turso dialect rejects an empty authToken, so only pass it when set.
 sudo -u marlon env HOME=/var/lib/marlon DATABASE_URL="$DATABASE_URL" \
